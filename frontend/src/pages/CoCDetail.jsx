@@ -2,38 +2,42 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CoCDetail.css'
+import { getCoc, getCocHistory, getCocMetrics, getCocFunctionalZeroStatus } from '../services/api'
 
 const CoCDetail = () => {
   const { cocId } = useParams()
   const [cocData, setCocData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    // TODO: Fetch actual data from API
-    setTimeout(() => {
-      setCocData({
-        coc_id: cocId,
-        name: `Continuum of Care ${cocId}`,
-        state: 'CA',
-        population: 500000,
-        functional_zero: false,
-        current_homeless: 150,
-        benchmark: 150,
-        historical_data: [
-          { year: 2019, homeless: 200 },
-          { year: 2020, homeless: 250 },
-          { year: 2021, homeless: 180 },
-          { year: 2022, homeless: 160 },
-          { year: 2023, homeless: 150 },
-        ]
+    let active = true
+    setLoading(true)
+    setError(null)
+    Promise.all([getCoc(cocId), getCocHistory(cocId), getCocMetrics(cocId),
+      getCocFunctionalZeroStatus(cocId).catch(err => {
+        if (err.response?.status === 404) return null
+        throw err
+      })])
+      .then(([coc, history, metrics, status]) => {
+        if (!active) return
+        const pit = metrics.metrics.filter(m => m.metric_type === 'pit_count').sort((a, b) => b.year - a.year)[0]
+        setCocData({ ...coc, name: coc.name || coc.coc_id,
+          status: status?.status, current_homeless: pit?.value ?? null,
+          benchmark: status?.benchmark_population ?? null,
+          historical_data: history.data.filter(m => m.metric_type === 'pit_count')
+            .map(m => ({ year: m.year, homeless: m.value }))
+        })
       })
-      setLoading(false)
-    }, 1000)
+      .catch(err => { if (active) setError(err.response?.status === 404 ? 'Continuum of Care not found.' : 'Unable to load CoC details. Please try again later.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [cocId])
 
   if (loading) {
     return <div className="loading">Loading CoC details...</div>
   }
+  if (error) return <div className="loading" role="alert">{error}</div>
 
   return (
     <div className="coc-detail">
@@ -46,15 +50,15 @@ const CoCDetail = () => {
         </div>
         <div className="info-card">
           <h3>Population</h3>
-          <p>{cocData.population.toLocaleString()}</p>
+          <p>{cocData.population?.toLocaleString() ?? 'Not available'}</p>
         </div>
         <div className="info-card">
           <h3>Current Homeless</h3>
-          <p>{cocData.current_homeless}</p>
+          <p>{cocData.current_homeless ?? 'Not available'}</p>
         </div>
         <div className="info-card">
           <h3>Functional Zero Benchmark</h3>
-          <p>{cocData.benchmark}</p>
+          <p>{cocData.benchmark ?? 'Not available'}</p>
         </div>
       </div>
 
@@ -74,8 +78,8 @@ const CoCDetail = () => {
 
       <div className="coc-status">
         <h2>Functional Zero Status</h2>
-        <p className={`status ${cocData.functional_zero ? 'achieved' : 'not-achieved'}`}>
-          {cocData.functional_zero ? 'Achieved' : 'Not Achieved'}
+        <p className={`status ${cocData.status === 'functional_zero' ? 'achieved' : 'not-achieved'}`}>
+          {cocData.status ? cocData.status.replaceAll('_', ' ') : 'Status not available'}
         </p>
       </div>
     </div>

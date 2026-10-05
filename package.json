@@ -1,0 +1,24 @@
+{
+  "name": "debughomelessness",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": ["frontend"],
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "build": "npm run build --workspace frontend",
+    "dev": "npm run build && wrangler dev --ip 127.0.0.1 --port 18787 --inspector-port 19229",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "test": "node --test worker/test/*.test.js",
+    "check": "npm test && npm run build && wrangler deploy --dry-run",
+    "cf:login": "wrangler login",
+    "cf:whoami": "wrangler whoami",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run check && npm run db:migrate:remote && wrangler deploy && npm run smoke",
+    "deploy:worker": "wrangler deploy",
+    "smoke": "node scripts/smoke.mjs",
+    "logs": "wrangler tail"
+  },
+  "devDependencies": { "wrangler": "^4.0.0" }
+}

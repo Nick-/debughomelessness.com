@@ -2,29 +2,36 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './Dashboard.css'
+import { getCocs, getMetrics, getFunctionalZeroStatus } from '../services/api'
 
 const Dashboard = () => {
   const [cocData, setCocData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    // TODO: Fetch actual data from API
-    // Mock data for now
-    setTimeout(() => {
-      setCocData([
-        { name: 'CoC-001', homeless: 150, functionalZero: false },
-        { name: 'CoC-002', homeless: 75, functionalZero: true },
-        { name: 'CoC-003', homeless: 200, functionalZero: false },
-        { name: 'CoC-004', homeless: 50, functionalZero: true },
-        { name: 'CoC-005', homeless: 300, functionalZero: false },
-      ])
-      setLoading(false)
-    }, 1000)
+    let active = true
+    Promise.all([getCocs(), getMetrics(), getFunctionalZeroStatus()])
+      .then(([cocs, metrics, statuses]) => {
+        if (!active) return
+        setCocData(cocs.map(coc => {
+          const pit = metrics.filter(m => m.coc_id === coc.coc_id && m.metric_type === 'pit_count')
+            .sort((a, b) => b.year - a.year)[0]
+          const status = statuses.find(s => s.coc_id === coc.coc_id)
+          return { ...coc, name: coc.name || coc.coc_id, homeless: pit?.value ?? null,
+            functionalZero: status?.status === 'functional_zero', status: status?.status }
+        }))
+      })
+      .catch(() => { if (active) setError('Unable to load the dashboard. Please try again later.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [])
 
   if (loading) {
     return <div className="loading">Loading dashboard...</div>
   }
+  if (error) return <div className="loading" role="alert">{error}</div>
+  if (!cocData.length) return <div className="dashboard"><h1 className="dashboard-title">Homelessness KPI Dashboard</h1><p>No verified data has been imported yet. Check back after the first data update.</p></div>
 
   return (
     <div className="dashboard">
@@ -40,7 +47,7 @@ const Dashboard = () => {
           <p className="stat-value">{cocData.filter(c => c.functionalZero).length}</p>
         </div>
         <div className="stat-card">
-          <h3>Total Homeless</h3>
+          <h3>Latest Available PIT Counts</h3>
           <p className="stat-value">{cocData.reduce((sum, c) => sum + c.homeless, 0)}</p>
         </div>
       </div>
@@ -63,11 +70,11 @@ const Dashboard = () => {
         <h2>Continuums of Care</h2>
         <div className="coc-grid">
           {cocData.map(coc => (
-            <Link key={coc.name} to={`/coc/${coc.name}`} className="coc-card">
+            <Link key={coc.coc_id} to={`/coc/${encodeURIComponent(coc.coc_id)}`} className="coc-card">
               <h3>{coc.name}</h3>
-              <p>Homeless: {coc.homeless}</p>
+              <p>Homeless: {coc.homeless ?? 'Not available'}</p>
               <span className={`status ${coc.functionalZero ? 'functional-zero' : 'not-achieved'}`}>
-                {coc.functionalZero ? 'Functional Zero' : 'Not Achieved'}
+                {coc.status ? coc.status.replaceAll('_', ' ') : 'Status not available'}
               </span>
             </Link>
           ))}

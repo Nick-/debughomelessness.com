@@ -2,7 +2,25 @@
 
 An open-source dashboard and API for tracking regional homelessness Key Performance Indicators (KPIs) and monitoring progress toward Functional Zero. 
 
-This project automates the ingestion of static federal U.S. Department of Housing and Urban Development (HUD) data and serves it through a modern REST API for real-time visualization.
+The dashboard and REST API serve imported aggregate homelessness records. The
+repository also contains a legacy HUD ETL scaffold; its example download URLs
+must be replaced with verified sources before automated ingestion can be used.
+
+## Cloudflare deployment
+
+The production deployment uses Cloudflare Workers for the React dashboard and
+read-only API, with Cloudflare D1 storage. See [the deployment protocol](docs/CLOUDFLARE.md)
+for authentication, local development, domain setup, GitHub Actions, and rollback.
+
+```sh
+npm ci
+npm run db:migrate:local
+npm run dev
+```
+
+Release with `npm run deploy`, then verify with `npm run smoke`.
+The dashboard uses imported database records; no mock data is published.
+The PostgreSQL/Python instructions below describe the legacy development setup.
 
 ---
 

@@ -1,10 +1,15 @@
 # API Documentation
 
 ## Base URL
-`http://localhost:8000`
+Production: `https://debughomelessness.com` (Cloudflare Worker with D1).
+Local Worker: `http://127.0.0.1:18787`.
+Legacy Python scaffold: `http://localhost:8000`.
 
 ## Authentication
-Currently no authentication is required. This should be added for production use.
+The Workers API is public and read-only. Only GET and HEAD are supported; writes
+are performed through authenticated D1 administration and reviewed imports.
+API errors are JSON, including unknown endpoints. Empty collections indicate no
+data has been imported; missing CoCs or individual assessments return 404.
 
 ## Endpoints
 
@@ -13,6 +18,7 @@ Currently no authentication is required. This should be added for production use
 GET /health
 ```
 Returns API health status.
+The Worker also checks that the D1 schema is accessible and returns 503 if it is not.
 
 ### Continuums of Care (CoC)
 
@@ -53,7 +59,7 @@ Returns historical data for a CoC.
 
 **Parameters:**
 - `coc_id` (path): CoC identifier
-- `years` (query): Number of years of history (default: 5)
+- `years` (query): Calendar-year window ending at the CoC's latest available metric year (default: 5, allowed: 1–100)
 
 ### Metrics
 
@@ -147,9 +153,11 @@ Returns timeline of Functional Zero progress for a CoC.
 
 ## Functional Zero Status Values
 
-- `functional_zero`: Fewer than 3 people per 10,000 population
-- `approaching`: Fewer than 5 people per 10,000 population
-- `not_achieved`: More than 5 people per 10,000 population
+- `functional_zero`, `approaching`, `not_achieved`: stored project assessments.
+
+The API returns the latest stored assessment per CoC and does not infer achievement
+from absent data. The legacy rate thresholds are project measures, not official
+Functional Zero certification. The timeline endpoint returns all stored assessments.
 
 ## Error Responses
 
@@ -164,4 +172,6 @@ All endpoints may return standard error responses:
 Common HTTP status codes:
 - 200: Success
 - 404: Resource not found
-- 500: Internal server error
+- 405: Method not allowed
+- 422: Invalid query or path parameter
+- 503: Database unavailable or not configured

@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "debughomelessness",
+  "account_id": "9266560766d3741dd4f51cc302ba9caa",
+  "main": "worker/src/index.js",
+  "compatibility_date": "2026-10-04",
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "debughomelessness.com", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./frontend/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api", "/api/*", "/health"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "debughomelessness",
+      "database_id": "96383678-58c2-4b46-9f19-3306d1d73a8a",
+      "migrations_dir": "database/d1/migrations"
+    }
+  ],
+  "observability": { "enabled": true }
+}

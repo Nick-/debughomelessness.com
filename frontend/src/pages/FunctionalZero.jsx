@@ -1,28 +1,34 @@
 import React, { useState, useEffect } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import './FunctionalZero.css'
+import { getFunctionalZeroStatus } from '../services/api'
 
 const FunctionalZero = () => {
   const [functionalZeroData, setFunctionalZeroData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    // TODO: Fetch actual data from API
-    setTimeout(() => {
+    let active = true
+    getFunctionalZeroStatus().then(statuses => {
+      if (!active) return
       setFunctionalZeroData([
-        { name: 'Functional Zero', value: 15, color: '#27ae60' },
-        { name: 'Approaching', value: 8, color: '#f39c12' },
-        { name: 'Not Achieved', value: 27, color: '#e74c3c' },
+        { name: 'Functional Zero', value: statuses.filter(s => s.status === 'functional_zero').length, color: '#27ae60' },
+        { name: 'Approaching', value: statuses.filter(s => s.status === 'approaching').length, color: '#f39c12' },
+        { name: 'Not Achieved', value: statuses.filter(s => s.status === 'not_achieved').length, color: '#e74c3c' },
       ])
-      setLoading(false)
-    }, 1000)
+    }).catch(() => { if (active) setError('Unable to load status data. Please try again later.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
   }, [])
 
   if (loading) {
     return <div className="loading">Loading Functional Zero data...</div>
   }
+  if (error) return <div className="loading" role="alert">{error}</div>
 
   const total = functionalZeroData.reduce((sum, item) => sum + item.value, 0)
+  if (!total) return <div className="functional-zero"><h1 className="page-title">Functional Zero Progress</h1><p>No status assessments have been imported yet.</p></div>
 
   return (
     <div className="functional-zero">
@@ -85,10 +91,9 @@ const FunctionalZero = () => {
       <div className="benchmark-info">
         <h2>What is Functional Zero?</h2>
         <p>
-          Functional Zero is achieved when a community has fewer than 3 people experiencing 
-          homelessness per 10,000 people in the general population. This benchmark, established 
-          by the U.S. Department of Housing and Urban Development (HUD), represents a sustainable 
-          end to homelessness.
+          This project's population-rate benchmark is fewer than 3 people experiencing
+          homelessness per 10,000 people in the general population. It is an indicative
+          project measure, not an official certification of Functional Zero.
         </p>
         <div className="benchmark-details">
           <div className="benchmark-item">
