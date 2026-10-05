@@ -28,6 +28,7 @@ wheels/
 .env.local
 .env.*
 !.env.example
+!frontend/.env.production
 .dev.vars*
 .wrangler/
 

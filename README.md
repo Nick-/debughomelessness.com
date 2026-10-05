@@ -135,6 +135,15 @@ remote migrations, deploys, and checks production.
 See [setup](docs/SETUP.md), [development](docs/DEVELOPMENT.md),
 [API documentation](docs/API.md), and [Cloudflare deployment](docs/CLOUDFLARE.md).
 
+## Google Analytics
+
+See [analytics setup and owner traffic exclusion](docs/ANALYTICS.md). The production
+build uses GA4 stream `G-01Q4FQHS0X`, configured in `frontend/.env.production`.
+GA4 loads only in a production build served over HTTPS on the production hostnames.
+Local development and previews
+are excluded. Use the footer's **Exclude this browser from analytics** link on
+each of your browsers/devices before browsing the deployed site.
+
 ## Project structure
 
 - `frontend/`: React pages and source/update notice.
