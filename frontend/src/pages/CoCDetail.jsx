@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './CoCDetail.css'
 import { getCoc, getCocHistory, getCocMetrics, getCocFunctionalZeroStatus } from '../services/api'
@@ -41,6 +41,7 @@ const CoCDetail = () => {
 
   return (
     <div className="coc-detail">
+      <Link to="/#coc-map" className="coc-back-link">← Back to CoC map</Link>
       <h1 className="coc-title">{cocData.name}</h1>
       
       <div className="coc-info">

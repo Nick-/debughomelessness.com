@@ -11,6 +11,9 @@ const Navbar = () => {
         </Link>
         <ul className="navbar-menu">
           <li className="navbar-item">
+            <Link to="/#coc-map" className="navbar-link" onClick={() => document.getElementById('coc-map')?.scrollIntoView()}>CoC Map</Link>
+          </li>
+          <li className="navbar-item">
             <Link to="/" className="navbar-link">Dashboard</Link>
           </li>
           <li className="navbar-item">

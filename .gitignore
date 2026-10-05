@@ -42,6 +42,8 @@ wheels/
 
 # Data files
 data/
+!frontend/public/data/
+!frontend/public/data/coc-boundaries.json
 *.csv
 *.geojson
 logs/

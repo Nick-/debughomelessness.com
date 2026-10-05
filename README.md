@@ -16,10 +16,24 @@ and the next expected dataset. January 2026 counts are the expected next annual
 dataset; HUD has not announced a publication date on its AHAR release pages.
 That expectation is not a scheduled site update. Imports are reviewed manually.
 
-Missing population, boundaries, SPM metrics, and Functional Zero assessments
+Missing population, SPM metrics, and Functional Zero assessments
 remain unavailable. PIT counts alone do not establish Functional Zero status.
 Dashboard totals include only CoCs reporting in the latest common PIT year;
 historical references remain accessible through the API and detail pages.
+
+The dashboard's clickable CoC map uses HUD's FY2024 grantee-area boundaries,
+simplified for display, with the latest imported PIT counts. Search by CoC name,
+ID, or state abbreviation, filter by state, and select a region or list entry to
+view counts and open its detail page. Regional map views include Alaska, Hawaii,
+Puerto Rico/U.S. Virgin Islands, and Guam. CoCs with no matching boundary remain
+accessible in the searchable list; boundary year and coverage appear below the map.
+Population and Functional Zero status remain unavailable when not imported.
+
+The checked-in boundary snapshot is generated from the official HUD layer with
+`node scripts/prepare-coc-boundaries.mjs`. The script validates IDs and geometries
+and saves source metadata in `frontend/public/data/coc-boundaries.json`. Review
+the layer's stated coverage year before updating the script for a new vintage.
+The map is served from the site's own assets; background tiles use OpenStreetMap.
 
 ## Local development
 

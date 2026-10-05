@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './Dashboard.css'
 import { getCocs, getMetrics, getFunctionalZeroStatus } from '../services/api'
+import CoCMap from '../components/CoCMap'
 
 const Dashboard = () => {
+  const { hash } = useLocation()
   const [cocData, setCocData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [latestYear, setLatestYear] = useState(null)
   const [assessmentCount, setAssessmentCount] = useState(0)
+
+  useEffect(() => {
+    if (!loading && hash === '#coc-map') document.getElementById('coc-map')?.scrollIntoView()
+  }, [hash, loading])
 
   useEffect(() => {
     let active = true
@@ -20,12 +26,15 @@ const Dashboard = () => {
         const year = pits.length ? Math.max(...pits.map(m => m.year)) : null
         setLatestYear(year)
         const currentCounts = new Map(pits.filter(m => m.year === year).map(m => [m.coc_id, m]))
+        const currentMetrics = new Map(metrics.filter(m => m.year === year).map(m => [`${m.coc_id}:${m.metric_type}`, m.value]))
         const currentCocs = cocs.filter(coc => currentCounts.has(coc.coc_id))
         setAssessmentCount(statuses.filter(s => currentCounts.has(s.coc_id)).length)
         setCocData(currentCocs.map(coc => {
           const pit = currentCounts.get(coc.coc_id)
           const status = statuses.find(s => s.coc_id === coc.coc_id)
           return { ...coc, name: coc.name || coc.coc_id, homeless: pit?.value ?? null,
+            sheltered: currentMetrics.get(`${coc.coc_id}:pit_sheltered`) ?? null,
+            unsheltered: currentMetrics.get(`${coc.coc_id}:pit_unsheltered`) ?? null,
             functionalZero: status?.status === 'functional_zero', status: status?.status }
         }))
       })
@@ -59,6 +68,8 @@ const Dashboard = () => {
           <p className="stat-value">{cocData.reduce((sum, c) => sum + c.homeless, 0).toLocaleString()}</p>
         </div>
       </div>
+
+      <CoCMap cocs={cocData} year={latestYear} />
 
       <div className="dashboard-chart">
         <h2>20 CoCs with the highest PIT counts ({latestYear})</h2>
