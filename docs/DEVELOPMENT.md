@@ -124,7 +124,7 @@ When modifying the ETL pipeline:
 2. Test with sample data first
 3. Update configuration in `etl/config/etl_config.yaml`
 4. Test database loading procedures
-5. Update GitHub Actions workflow if needed
+5. Update the local ETL launchers and host schedule if needed; see [SETUP.md](SETUP.md#host-scheduling).
 
 ## Performance Considerations
 

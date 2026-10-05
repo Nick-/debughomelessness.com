@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug dashboard (Edge)",
+      "type": "msedge",
+      "request": "launch",
+      "url": "http://127.0.0.1:3000",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "Start frontend dev server"
+    },
+    {
+      "name": "Debug Cloudflare Worker",
+      "type": "node",
+      "request": "attach",
+      "address": "127.0.0.1",
+      "port": 19229,
+      "cwd": "${workspaceFolder}",
+      "resolveSourceMapLocations": null,
+      "attachExistingChildren": false,
+      "autoAttachChildProcesses": false,
+      "sourceMaps": true,
+      "preLaunchTask": "Start local app"
+    }
+  ]
+}

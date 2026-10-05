@@ -10,7 +10,7 @@ must be replaced with verified sources before automated ingestion can be used.
 
 The production deployment uses Cloudflare Workers for the React dashboard and
 read-only API, with Cloudflare D1 storage. See [the deployment protocol](docs/CLOUDFLARE.md)
-for authentication, local development, domain setup, GitHub Actions, and rollback.
+for authentication, local validation, domain setup, direct releases, and rollback.
 
 ```sh
 npm ci
@@ -18,9 +18,26 @@ npm run db:migrate:local
 npm run dev
 ```
 
-Release with `npm run deploy`, then verify with `npm run smoke`.
+Validate with `npm run validate`. Release directly to Cloudflare with
+`npm run deploy`; it validates and runs production smoke tests automatically.
+These commands run from any checkout without repository-hosted CI or secrets.
 The dashboard uses imported database records; no mock data is published.
 The PostgreSQL/Python instructions below describe the legacy development setup.
+
+### VS Code run and debug
+
+After `npm ci`, open the repository root in VS Code and press **F5**. Choose
+**Debug dashboard (Edge)** to launch Vite with frontend source breakpoints at
+`http://127.0.0.1:3000`, or **Debug Cloudflare Worker**
+to debug API code in `worker/src`. Both configurations apply local D1 migrations,
+build the frontend, and start the app at `http://127.0.0.1:18787` before connecting.
+The Worker debugger uses port `19229`, following
+[Cloudflare's VS Code debugger setup](https://developers.cloudflare.com/workers/observability/dev-tools/breakpoints/).
+
+Stop the background servers with **Tasks: Terminate Task** → **Start frontend dev
+server** and **Start local app** when finished. If you already started
+`npm run dev` or `npm run dev:frontend` in another terminal, stop them before
+starting an F5 configuration so the ports are available.
 
 ---
 
@@ -28,7 +45,7 @@ The PostgreSQL/Python instructions below describe the legacy development setup.
 
 The application is broken down into four core components:
 
-1. **ETL Pipeline:** A scheduled GitHub Action that scrapes, cleans, and transforms static CSVs from the HUD Exchange into relational data.
+1. **ETL Pipeline:** Local Python scripts for downloading and processing HUD data for the legacy PostgreSQL database. Verified source URLs are required before use; see [host scheduling](docs/SETUP.md#host-scheduling).
 2. **Database:** A PostgreSQL database structured around Continuums of Care (CoCs) geographic boundaries and yearly metrics.
 3. **Backend API:** A Python REST API that calculates metrics like Functional Zero status and serves the dashboard.
 4. **Frontend UI:** A React dashboard utilizing charting libraries to visualize historical trends and geographic data.
@@ -52,10 +69,10 @@ This project relies on public data published by HUD. The ETL pipeline automatica
 * Node.js 18+
 * Git
 
-### 1. Clone Repository
+### 1. Open the Project
+Use an existing checkout or extract a source archive, then open its root:
 ```bash
-git clone https://github.com/Nick-/homelessness-kpi-tracker.git
-cd homelessness-kpi-tracker
+cd debughomelessness.com
 ```
 
 ### 2. Set Up Database
@@ -142,9 +159,11 @@ homelessness-kpi-tracker/
 ├── scripts/             # Utility scripts
 │   ├── start-backend.bat/sh
 │   ├── start-frontend.bat/sh
-│   └── run-etl.bat/sh
-└── .github/             # GitHub Actions
-    └── workflows/       # CI/CD workflows
+│   ├── run-etl.bat/sh
+│   ├── test-runtime.mjs # Local Workers/D1 validation
+│   └── smoke.mjs        # Local or production smoke checks
+├── worker/              # Cloudflare read-only API
+└── wrangler.json        # Cloudflare deployment configuration
 ```
 
 ---

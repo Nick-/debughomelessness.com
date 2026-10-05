@@ -1,0 +1,72 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Prepare local database",
+      "type": "npm",
+      "script": "db:migrate:local",
+      "problemMatcher": []
+    },
+    {
+      "label": "Start local app",
+      "type": "npm",
+      "script": "dev",
+      "dependsOn": "Prepare local database",
+      "isBackground": true,
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": {
+        "owner": "wrangler",
+        "pattern": {
+          "regexp": "^(.+):(\\d+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Starting local server",
+          "endsPattern": "Ready on http://127\\.0\\.0\\.1:18787"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    },
+    {
+      "label": "Start frontend dev server",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev", "--workspace", "frontend", "--", "--host", "127.0.0.1", "--strictPort"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "NO_COLOR": "1" }
+      },
+      "dependsOn": "Start local app",
+      "isBackground": true,
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "problemMatcher": {
+        "owner": "vite",
+        "pattern": {
+          "regexp": "^(.+):(\\d+):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE.*ready",
+          "endsPattern": "Local:.*http://127\\.0\\.0\\.1:3000/"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

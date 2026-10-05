@@ -17,7 +17,7 @@ Deployed and verified on October 4, 2026 (America/New_York).
 - Production smoke tests passed for health, all three API collections, unknown
   API routes, the homepage, and direct React routes. Browser verification passed.
 - No production records have been imported. The dashboard shows an empty state.
-- The GitHub workflow is prepared locally; it has not been activated on GitHub.
+- Releases use local validation and direct Wrangler deployment.
 
 Wrangler's warning about omitted OAuth scopes is expected with this project's
 limited login scopes. Workers, D1, and Custom Domain deployment succeeded with
@@ -59,8 +59,11 @@ record deliberately rather than deleting unrelated records.
 ## Release protocol
 
 1. Review the code and migrations. Run `npm ci` on a fresh checkout.
-2. Run `npm run check` (API tests, React build, Workers dry run).
-3. Run `npm run db:migrate:local` and `npm run dev`; check `npm run smoke -- http://127.0.0.1:18787`.
+2. Run `npm run validate` (API tests, React build, Workers dry run, local D1 migrations,
+   and smoke tests against the Workers runtime). The runtime check starts and stops
+   its own local Worker on port 18788, with inspector port 19230 and a temporary
+   D1 database; it does not modify your development database.
+3. Run `npm run db:migrate:local` and `npm run dev` for a browser review.
 4. Confirm `npm run cf:whoami` shows the configured account.
 5. Run `npm run deploy`. It validates, builds, applies pending remote migrations,
    then deploys the Worker and static assets together and runs production smoke tests.
@@ -76,27 +79,38 @@ To roll back code, run `npx wrangler deployments list`, then
 schema. Fix database issues with a forward migration; do not remove applied
 migration files.
 
-## GitHub deployment
+## Deployment without repository-hosted CI
 
-`.github/workflows/cloudflare-deploy.yml` validates pull requests and deploys
-pushes to `master` after validation; it also supports manual dispatch on `master`.
-The production job applies migrations, builds, deploys, and tests the live domain.
-Configure the repository's `production` environment:
+Run the same commands from a local checkout or a runner you control:
 
-- Secret `CLOUDFLARE_API_TOKEN`: a dedicated token scoped to this account and
+```sh
+npm ci
+npm run validate
+# After reviewing the changes and authenticating to Cloudflare:
+npm run deploy
+```
+
+`npm run deploy` runs validation before applying remote migrations, deploying,
+and checking the live domain. Releases are explicitly invoked; pushing a branch
+does not deploy. `npm run check` remains available for tests, a build, and a dry run,
+while `npm run test:runtime` runs only the local runtime check after a build.
+
+Interactive releases use `npm run cf:login`. For a noninteractive runner, set
+these environment variables in that runner's secret store:
+
+- `CLOUDFLARE_API_TOKEN`: a dedicated token scoped to this account and
   zone, with Workers Scripts Edit, D1 Edit, Workers Routes Edit, Zone Read, and
   the permissions required for Worker Custom Domains (including SSL/certificates
   if needed by the account's token policy).
-- Variable `CLOUDFLARE_ACCOUNT_ID`: `9266560766d3741dd4f51cc302ba9caa`.
-- Optional required reviewers on the environment for release approval.
+- `CLOUDFLARE_ACCOUNT_ID`: `9266560766d3741dd4f51cc302ba9caa`.
 
-Do not commit credentials or reuse the local OAuth token in CI. The workflow is
-only active after these files are pushed to GitHub and the credentials are set.
+Do not commit credentials or copy the local OAuth token into a runner. No
+repository-host credentials or Actions are needed to validate or deploy.
 
 ## Data import
 
 Production starts empty. The UI shows unavailable data rather than mock counts.
-The existing Python ETL workflow targets PostgreSQL and its downloader contains
+The existing Python ETL scripts target PostgreSQL and their downloader contains
 example HUD URLs; it does not populate this D1 database. Verified HUD source
 selection and ingestion are separate work from deployment.
 
