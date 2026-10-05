@@ -9,6 +9,8 @@ const api = axios.create({
   },
 })
 
+export const getDataStatus = async () => (await api.get('/api/data-status')).data
+
 // CoC API calls
 export const getCocs = async () => {
   const response = await api.get('/api/coc/')

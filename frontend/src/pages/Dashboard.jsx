@@ -8,15 +8,22 @@ const Dashboard = () => {
   const [cocData, setCocData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [latestYear, setLatestYear] = useState(null)
+  const [assessmentCount, setAssessmentCount] = useState(0)
 
   useEffect(() => {
     let active = true
     Promise.all([getCocs(), getMetrics(), getFunctionalZeroStatus()])
       .then(([cocs, metrics, statuses]) => {
         if (!active) return
-        setCocData(cocs.map(coc => {
-          const pit = metrics.filter(m => m.coc_id === coc.coc_id && m.metric_type === 'pit_count')
-            .sort((a, b) => b.year - a.year)[0]
+        const pits = metrics.filter(m => m.metric_type === 'pit_count')
+        const year = pits.length ? Math.max(...pits.map(m => m.year)) : null
+        setLatestYear(year)
+        const currentCounts = new Map(pits.filter(m => m.year === year).map(m => [m.coc_id, m]))
+        const currentCocs = cocs.filter(coc => currentCounts.has(coc.coc_id))
+        setAssessmentCount(statuses.filter(s => currentCounts.has(s.coc_id)).length)
+        setCocData(currentCocs.map(coc => {
+          const pit = currentCounts.get(coc.coc_id)
           const status = statuses.find(s => s.coc_id === coc.coc_id)
           return { ...coc, name: coc.name || coc.coc_id, homeless: pit?.value ?? null,
             functionalZero: status?.status === 'functional_zero', status: status?.status }
@@ -39,29 +46,30 @@ const Dashboard = () => {
       
       <div className="dashboard-stats">
         <div className="stat-card">
-          <h3>Total CoCs</h3>
+          <h3>CoCs reporting in {latestYear}</h3>
           <p className="stat-value">{cocData.length}</p>
         </div>
         <div className="stat-card">
           <h3>Functional Zero</h3>
-          <p className="stat-value">{cocData.filter(c => c.functionalZero).length}</p>
+          <p className="stat-value">{assessmentCount ? cocData.filter(c => c.functionalZero).length : 'Not available'}</p>
+          <p>{assessmentCount} CoCs with status assessments</p>
         </div>
         <div className="stat-card">
-          <h3>Latest Available PIT Counts</h3>
-          <p className="stat-value">{cocData.reduce((sum, c) => sum + c.homeless, 0)}</p>
+          <h3>January {latestYear} PIT count</h3>
+          <p className="stat-value">{cocData.reduce((sum, c) => sum + c.homeless, 0).toLocaleString()}</p>
         </div>
       </div>
 
       <div className="dashboard-chart">
-        <h2>Homelessness by CoC</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={cocData}>
+        <h2>20 CoCs with the highest PIT counts ({latestYear})</h2>
+        <ResponsiveContainer width="100%" height={360}>
+          <BarChart data={[...cocData].sort((a, b) => b.homeless - a.homeless).slice(0, 20)} margin={{ bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
+            <XAxis dataKey="coc_id" angle={-45} textAnchor="end" height={65} interval={0} tick={{ fontSize: 11 }} />
             <YAxis />
-            <Tooltip />
+            <Tooltip labelFormatter={id => cocData.find(c => c.coc_id === id)?.name || id} formatter={value => value.toLocaleString()} />
             <Legend />
-            <Bar dataKey="homeless" fill="#3498db" />
+            <Bar dataKey="homeless" name="PIT count" fill="#3498db" />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -72,8 +80,8 @@ const Dashboard = () => {
           {cocData.map(coc => (
             <Link key={coc.coc_id} to={`/coc/${encodeURIComponent(coc.coc_id)}`} className="coc-card">
               <h3>{coc.name}</h3>
-              <p>Homeless: {coc.homeless ?? 'Not available'}</p>
-              <span className={`status ${coc.functionalZero ? 'functional-zero' : 'not-achieved'}`}>
+              <p>{latestYear} PIT count: {coc.homeless?.toLocaleString() ?? 'Not available'}</p>
+              <span className={`status ${!coc.status ? 'unavailable' : coc.functionalZero ? 'functional-zero' : 'not-achieved'}`}>
                 {coc.status ? coc.status.replaceAll('_', ' ') : 'Status not available'}
               </span>
             </Link>

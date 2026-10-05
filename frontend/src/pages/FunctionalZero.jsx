@@ -28,7 +28,7 @@ const FunctionalZero = () => {
   if (error) return <div className="loading" role="alert">{error}</div>
 
   const total = functionalZeroData.reduce((sum, item) => sum + item.value, 0)
-  if (!total) return <div className="functional-zero"><h1 className="page-title">Functional Zero Progress</h1><p>No status assessments have been imported yet.</p></div>
+  if (!total) return <div className="functional-zero"><h1 className="page-title">Functional Zero Progress</h1><p>No status assessments have been imported yet. HUD PIT counts alone do not establish Functional Zero status.</p></div>
 
   return (
     <div className="functional-zero">

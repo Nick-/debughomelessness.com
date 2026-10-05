@@ -1,0 +1,14 @@
+.data-freshness {
+  border-left: 4px solid #2471a3;
+  background: #edf5fa;
+  color: #243746;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.data-freshness p + p { margin-top: 0.35rem; }
+.data-freshness a { color: #165b89; text-decoration: underline; }
+.data-freshness details { margin-top: 0.5rem; }
+.data-freshness summary { cursor: pointer; }

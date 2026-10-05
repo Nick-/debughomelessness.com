@@ -23,7 +23,7 @@ const CoCDetail = () => {
         if (!active) return
         const pit = metrics.metrics.filter(m => m.metric_type === 'pit_count').sort((a, b) => b.year - a.year)[0]
         setCocData({ ...coc, name: coc.name || coc.coc_id,
-          status: status?.status, current_homeless: pit?.value ?? null,
+          status: status?.status, current_homeless: pit?.value ?? null, pit_year: pit?.year,
           benchmark: status?.benchmark_population ?? null,
           historical_data: history.data.filter(m => m.metric_type === 'pit_count')
             .map(m => ({ year: m.year, homeless: m.value }))
@@ -53,8 +53,8 @@ const CoCDetail = () => {
           <p>{cocData.population?.toLocaleString() ?? 'Not available'}</p>
         </div>
         <div className="info-card">
-          <h3>Current Homeless</h3>
-          <p>{cocData.current_homeless ?? 'Not available'}</p>
+          <h3>Latest PIT count {cocData.pit_year ? `(${cocData.pit_year})` : ''}</h3>
+          <p>{cocData.current_homeless?.toLocaleString() ?? 'Not available'}</p>
         </div>
         <div className="info-card">
           <h3>Functional Zero Benchmark</h3>

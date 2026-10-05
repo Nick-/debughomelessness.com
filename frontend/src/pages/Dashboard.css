@@ -114,3 +114,5 @@
   background-color: #e74c3c;
   color: white;
 }
+
+.status.unavailable { background-color: #ecf0f1; color: #485663; }

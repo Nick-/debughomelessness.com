@@ -1,12 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import worker from '../src/index.js';
 
 function fixture() {
   const db = new DatabaseSync(':memory:');
-  db.exec(readFileSync(new URL('../../database/d1/migrations/0001_initial.sql', import.meta.url), 'utf8'));
+  const migrations = new URL('../../database/d1/migrations/', import.meta.url);
+  for (const file of readdirSync(migrations).filter(file => file.endsWith('.sql')).sort()) {
+    db.exec(readFileSync(new URL(file, migrations), 'utf8'));
+  }
   db.exec(`INSERT INTO continuums_of_care(coc_id, name, state, population, boundary_geojson)
     VALUES ('TEST-001', 'Test CoC', 'CA', 100000, '{"type":"FeatureCollection","features":[]}');
     INSERT INTO metrics(coc_id, metric_type, year, value) VALUES
@@ -75,4 +78,21 @@ test('client routes go to assets while unknown API routes remain JSON 404s', asy
     assert.match(await (await f.request(path)).text(), /id="root"/);
   }
   assert.equal((await f.request('/api/missing')).status, 404);
+});
+
+test('data update metadata distinguishes an empty import and an unannounced release', async t => {
+  const f = fixture(); t.after(() => f.db.close());
+  assert.deepEqual(await (await f.request('/api/data-status')).json(), { datasets: [] });
+  f.db.prepare(`INSERT INTO data_updates VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    'hud_pit', 2022, 2025, 'https://www.huduser.gov/source', 'May 2026', 'checksum',
+    '2026-10-05T02:00:00Z', 2026, null, 'Date not announced', 'January point-in-time estimates');
+  const response = await f.request('/api/data-status/');
+  assert.equal(response.status, 200);
+  const { datasets } = await response.json();
+  assert.equal(datasets[0].latest_year, 2025);
+  assert.equal(datasets[0].imported_at, '2026-10-05T02:00:00Z');
+  assert.equal(datasets[0].next_expected_year, 2026);
+  assert.equal(datasets[0].next_release_date, null);
+  assert.equal((await f.request('/api/data-status', 'POST')).status, 405);
+  assert.equal(await (await f.request('/api/data-status', 'HEAD')).text(), '');
 });

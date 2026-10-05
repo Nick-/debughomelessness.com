@@ -1,16 +1,29 @@
 # Homelessness KPI Tracker
 
-An open-source dashboard and API for tracking regional homelessness Key Performance Indicators (KPIs) and monitoring progress toward Functional Zero. 
+A React dashboard and public read-only API for aggregate homelessness data.
+Cloudflare Workers serves the app and API; Cloudflare D1 stores verified imports.
+The production site is [debughomelessness.com](https://debughomelessness.com).
 
-The dashboard and REST API serve imported aggregate homelessness records. The
-repository also contains a legacy HUD ETL scaffold; its example download URLs
-must be replaced with verified sources before automated ingestion can be used.
+## Data
 
-## Cloudflare deployment
+The initial import uses HUD's [2025 AHAR PIT release](https://www.huduser.gov/portal/datasets/ahar/2025-ahar-part-1-pit-estimates-of-homelessness-in-the-us.html),
+published in May 2026, with 2022–2025 history. The 2025 dataset covers 386 CoCs and
+745,652 people. PIT estimates describe one night in January. HUD carries forward
+unsheltered estimates for some communities in sheltered-only count years.
 
-The production deployment uses Cloudflare Workers for the React dashboard and
-read-only API, with Cloudflare D1 storage. See [the deployment protocol](docs/CLOUDFLARE.md)
-for authentication, local validation, domain setup, direct releases, and rollback.
+Every page shows dataset years, HUD publication period, actual import time,
+and the next expected dataset. January 2026 counts are the expected next annual
+dataset; HUD has not announced a publication date on its AHAR release pages.
+That expectation is not a scheduled site update. Imports are reviewed manually.
+
+Missing population, boundaries, SPM metrics, and Functional Zero assessments
+remain unavailable. PIT counts alone do not establish Functional Zero status.
+Dashboard totals include only CoCs reporting in the latest common PIT year;
+historical references remain accessible through the API and detail pages.
+
+## Local development
+
+Use Node.js 24 (minimum 22.12).
 
 ```sh
 npm ci
@@ -18,202 +31,63 @@ npm run db:migrate:local
 npm run dev
 ```
 
-Validate with `npm run validate`. Release directly to Cloudflare with
-`npm run deploy`; it validates and runs production smoke tests automatically.
-These commands run from any checkout without repository-hosted CI or secrets.
-The dashboard uses imported database records; no mock data is published.
-The PostgreSQL/Python instructions below describe the legacy development setup.
+Open http://127.0.0.1:18787. For frontend hot reload, also run
+`npm run dev:frontend` and open http://localhost:3000. Vite proxies `/api` to the
+local Worker. `VITE_API_URL` is optional and defaults to the same origin.
 
-### VS Code run and debug
+VS Code F5 supports **Debug dashboard (Edge)** and **Debug Cloudflare Worker**.
+Launch tasks apply local migrations and start the required servers. Stop them
+with **Tasks: Terminate Task** when finished.
 
-After `npm ci`, open the repository root in VS Code and press **F5**. Choose
-**Debug dashboard (Edge)** to launch Vite with frontend source breakpoints at
-`http://127.0.0.1:3000`, or **Debug Cloudflare Worker**
-to debug API code in `worker/src`. Both configurations apply local D1 migrations,
-build the frontend, and start the app at `http://127.0.0.1:18787` before connecting.
-The Worker debugger uses port `19229`, following
-[Cloudflare's VS Code debugger setup](https://developers.cloudflare.com/workers/observability/dev-tools/breakpoints/).
+## Verified data import
 
-Stop the background servers with **Tasks: Terminate Task** → **Start frontend dev
-server** and **Start local app** when finished. If you already started
-`npm run dev` or `npm run dev:frontend` in another terminal, stop them before
-starting an F5 configuration so the ports are available.
+Python 3.10+ is used only to extract HUD's binary Excel source files. The app,
+API, database, validation, and deployment run with Node.js and Cloudflare.
 
----
-
-## 🏗 System Architecture
-
-The application is broken down into four core components:
-
-1. **ETL Pipeline:** Local Python scripts for downloading and processing HUD data for the legacy PostgreSQL database. Verified source URLs are required before use; see [host scheduling](docs/SETUP.md#host-scheduling).
-2. **Database:** A PostgreSQL database structured around Continuums of Care (CoCs) geographic boundaries and yearly metrics.
-3. **Backend API:** A Python REST API that calculates metrics like Functional Zero status and serves the dashboard.
-4. **Frontend UI:** A React dashboard utilizing charting libraries to visualize historical trends and geographic data.
-
----
-
-## 📊 Data Sources
-
-This project relies on public data published by HUD. The ETL pipeline automatically monitors and ingests updates from:
-* **Point-in-Time (PIT) Counts:** Annual counts of sheltered and unsheltered individuals.
-* **System Performance Measures (SPM):** Metrics tracking the length of time homeless, successful placements, and recidivism rates.
-* **HUD Open Data (GIS):** Regional boundary definitions for Continuums of Care.
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-* Python 3.10+
-* PostgreSQL 15+
-* Node.js 18+
-* Git
-
-### 1. Open the Project
-Use an existing checkout or extract a source archive, then open its root:
-```bash
-cd debughomelessness.com
+```sh
+python -m pip install -r scripts/requirements-import.txt
+python scripts/prepare-hud-import.py --download
+python -m unittest discover -s scripts -p "test_hud_import.py"
+npx wrangler d1 execute DB --local --file data/import/hud-pit.sql
 ```
 
-### 2. Set Up Database
-```bash
-# Create PostgreSQL database
-createdb homelessness_kpi
+Preparation checks unique IDs, nonnegative integer counts, sheltered/unsheltered
+reconciliation, national totals, and agreement with the separate HUD state
+workbook before writing SQL. Each metric retains its year and source URL, and
+the manifest records SHA-256 checksums. HUD's `MO-604a` footnote is normalized to
+`MO-604`, with Missouri and Kansas coverage. Upserts are safe to repeat and leave
+missing assessments and populations untouched.
 
-# Run schema
-psql -d homelessness_kpi -f database/schema.sql
+Review `data/import/hud-pit-manifest.json` and the local dashboard, then export a
+remote backup, apply pending migrations, and import:
+
+```sh
+npx wrangler d1 export DB --remote --output data/before-import.sql
+npm run db:migrate:remote
+npx wrangler d1 execute DB --remote --file data/import/hud-pit.sql
+npm run smoke
 ```
 
-### 3. Configure Environment
-```bash
-# Copy environment template
-cp .env.example .env
+The database records import time when SQL is applied. Source files, generated
+SQL, manifests, and backups under `data/` are ignored by Git. Update source
+constants and release expectations in the preparation script when a new HUD
+release is verified. No recurring import or monitor is installed.
 
-# Edit .env with your database credentials
-```
+## Validation and release
 
-### 4. Start Services
+`npm run validate` runs API tests, the React build, a Workers dry run, and runtime
+smoke tests against a temporary D1 database. `npm run deploy` validates, applies
+remote migrations, deploys, and checks production.
 
-**Backend (Python):**
-```bash
-# On Windows
-scripts\start-backend.bat
+See [setup](docs/SETUP.md), [development](docs/DEVELOPMENT.md),
+[API documentation](docs/API.md), and [Cloudflare deployment](docs/CLOUDFLARE.md).
 
-# On Unix/Mac
-chmod +x scripts/start-backend.sh
-./scripts/start-backend.sh
-```
+## Project structure
 
-**Frontend (React):**
-```bash
-# On Windows
-scripts\start-frontend.bat
+- `frontend/`: React pages and source/update notice.
+- `worker/`: Cloudflare API and SQLite-backed API tests.
+- `database/d1/migrations/`: additive D1 schema changes.
+- `scripts/`: source validation, runtime checks, and smoke tests.
+- `docs/`: setup, API, and release instructions.
 
-# On Unix/Mac
-chmod +x scripts/start-frontend.sh
-./scripts/start-frontend.sh
-```
-
-**ETL Pipeline (Optional):**
-```bash
-# On Windows
-scripts\run-etl.bat
-
-# On Unix/Mac
-chmod +x scripts/run-etl.sh
-./scripts/run-etl.sh
-```
-
-### 5. Access Applications
-- **Frontend Dashboard:** http://localhost:3000
-- **Backend API:** http://localhost:8000
-- **API Documentation:** http://localhost:8000/docs
-
----
-
-## 📁 Project Structure
-
-```
-homelessness-kpi-tracker/
-├── backend/              # Python FastAPI backend
-│   ├── api/             # API route handlers
-│   ├── models/          # Pydantic data models
-│   ├── services/        # Business logic
-│   └── utils/           # Utility functions
-├── frontend/            # React frontend
-│   ├── src/
-│   │   ├── components/  # React components
-│   │   ├── pages/       # Page components
-│   │   └── services/    # API service layer
-│   └── public/          # Static assets
-├── etl/                 # ETL pipeline
-│   ├── scripts/         # Data processing scripts
-│   └── config/          # ETL configuration
-├── database/            # Database schema
-│   ├── schema.sql       # PostgreSQL schema
-│   ├── migrations/      # Database migrations
-│   └── seeds/           # Seed data
-├── docs/                # Documentation
-│   ├── SETUP.md         # Setup guide
-│   └── API.md           # API documentation
-├── scripts/             # Utility scripts
-│   ├── start-backend.bat/sh
-│   ├── start-frontend.bat/sh
-│   ├── run-etl.bat/sh
-│   ├── test-runtime.mjs # Local Workers/D1 validation
-│   └── smoke.mjs        # Local or production smoke checks
-├── worker/              # Cloudflare read-only API
-└── wrangler.json        # Cloudflare deployment configuration
-```
-
----
-
-## 🔧 Development
-
-### Manual Setup
-
-For detailed setup instructions, see [docs/SETUP.md](docs/SETUP.md)
-
-### API Documentation
-
-See [docs/API.md](docs/API.md) for complete API documentation.
-
-### Running Tests
-
-```bash
-# Backend tests
-pytest
-
-# Frontend tests
-npm test
-```
-
-### Code Formatting
-
-```bash
-# Backend
-black backend/
-flake8 backend/
-
-# Frontend
-npm run lint
-```
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-## 🙏 Acknowledgments
-
-- Data provided by the U.S. Department of Housing and Urban Development (HUD)
-- Built with FastAPI, React, and PostgreSQL
+Public data is supplied by HUD. This project is licensed under the MIT License.

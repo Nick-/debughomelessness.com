@@ -36,6 +36,7 @@ async function api(request, env, path, url) {
     await one('SELECT coc_id FROM continuums_of_care LIMIT 1');
     return json({ status: 'healthy', service: 'debughomelessness', database: 'connected' });
   }
+  if (path === '/api/data-status') return json({ datasets: await all('SELECT * FROM data_updates ORDER BY dataset') });
   if (path === '/api/coc') return json(await all('SELECT * FROM continuums_of_care ORDER BY coc_id').then(rows => rows.map(c => ({ ...c, boundary_geojson: c.boundary_geojson ? JSON.parse(c.boundary_geojson) : null }))));
   let match;
   if ((match = path.match(/^\/api\/coc\/([^/]+)\/history$/))) {

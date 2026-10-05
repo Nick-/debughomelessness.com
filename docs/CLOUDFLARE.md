@@ -16,12 +16,27 @@ Deployed and verified on October 4, 2026 (America/New_York).
 - Worker version: `4c3c3b0e-bd7d-4f60-b1ce-ec17347d13b0`.
 - Production smoke tests passed for health, all three API collections, unknown
   API routes, the homepage, and direct React routes. Browser verification passed.
-- No production records have been imported. The dashboard shows an empty state.
+- The initial deployment started empty. See the data import section for the verified HUD import.
 - Releases use local validation and direct Wrangler deployment.
 
 Wrangler's warning about omitted OAuth scopes is expected with this project's
 limited login scopes. Workers, D1, and Custom Domain deployment succeeded with
 these scopes; unrelated product permissions are unnecessary for this release.
+
+## Verified HUD import release
+
+Released on October 4, 2026 (America/New_York).
+
+- Worker version: `2fb3d190-6b20-43a8-b68d-eb4028c849fb`.
+- Applied migration: `0002_data_updates.sql`.
+- Imported 4,629 metrics for 2022–2025 and 389 current/historical CoC references.
+- The latest count covers 386 reporting CoCs and 745,652 people in January 2025.
+- CoC and state workbook totals agree for every imported year and metric type.
+- A pre-import D1 export is saved locally at `data/before-import-2026-10-04.sql`.
+- The dashboard displays source publication, actual import time, and the next
+  expected annual dataset. No Functional Zero assessments were inferred.
+- Import tests, API tests, frontend build, Workers dry run, local runtime smoke
+  checks, production smoke checks, and production data reconciliation passed.
 
 ## Local setup
 
@@ -38,7 +53,6 @@ and open http://localhost:3000; Vite proxies `/api` to Wrangler on port 18787.
 These explicit ports avoid Windows reserved port conflicts encountered on this machine.
 The default API URL is same-origin. An explicit `VITE_API_URL` overrides it at
 build time and should only be used when deliberately targeting another API.
-The legacy Python backend remains available for PostgreSQL users.
 
 ## Authenticate and provision
 
@@ -109,21 +123,27 @@ repository-host credentials or Actions are needed to validate or deploy.
 
 ## Data import
 
-Production starts empty. The UI shows unavailable data rather than mock counts.
-The existing Python ETL scripts target PostgreSQL and their downloader contains
-example HUD URLs; it does not populate this D1 database. Verified HUD source
-selection and ingestion are separate work from deployment.
+Use the [verified HUD import workflow](../README.md#verified-data-import).
+The preparation script downloads official 2025 PIT CoC and state workbooks,
+validates 2022–2025 records against national totals and the separate state file,
+and writes `data/import/hud-pit.sql` with a source checksum manifest.
 
-For an initial import, prepare reviewed SQLite-compatible SQL for the tables in
-`database/d1/migrations/0001_initial.sql`, inserting CoC references before metrics
-and assessments. Use bound parameters or correctly escaped SQL when generating
-imports; preserve source and year on each metric.
+Apply all migrations before importing. Imports insert CoC references before
+metrics and write `data_updates` metadata last, with the application timestamp.
+Upserts preserve missing populations and assessments. Review the SQL and
+manifest locally and export a remote backup before remote writes.
 
 ```sh
-npx wrangler d1 execute DB --local --file data/import.sql
-npx wrangler d1 execute DB --remote --file data/import.sql
+npx wrangler d1 execute DB --local --file data/import/hud-pit.sql
+npx wrangler d1 export DB --remote --output data/before-import.sql
+npx wrangler d1 execute DB --remote --file data/import/hud-pit.sql
 ```
 
 Import only aggregate public data. Functional Zero responses return the latest
 stored assessment per CoC; missing assessments are not treated as achievement.
 The project's rate benchmark is not an official Functional Zero certification.
+
+The site shows January 2025 as the latest PIT count, HUD's May 2026 publication,
+and database import time. January 2026 is the expected next annual dataset;
+HUD has not announced a publication date on its AHAR release pages. A new release
+requires source verification, preparation-script updates, and a reviewed import.

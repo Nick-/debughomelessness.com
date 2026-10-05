@@ -3,7 +3,6 @@
 ## Base URL
 Production: `https://debughomelessness.com` (Cloudflare Worker with D1).
 Local Worker: `http://127.0.0.1:18787`.
-Legacy Python scaffold: `http://localhost:8000`.
 
 ## Authentication
 The Workers API is public and read-only. Only GET and HEAD are supported; writes
@@ -12,6 +11,17 @@ API errors are JSON, including unknown endpoints. Empty collections indicate no
 data has been imported; missing CoCs or individual assessments return 404.
 
 ## Endpoints
+
+### Data source and updates
+```
+GET /api/data-status
+```
+Returns `{ "datasets": [...] }`. Imported datasets include `first_year`,
+`latest_year`, `source_url`, `source_published`, `source_sha256`, `imported_at`
+(UTC ISO timestamp), `next_expected_year`, nullable `next_release_date`,
+`next_release_note`, and `methodology_note`. An empty list means no import
+metadata exists. A null release date means no announced date. Import time is
+recorded when the SQL is applied.
 
 ### Health Check
 ```
@@ -107,7 +117,7 @@ GET /api/metrics/type/{metric_type}
 Returns metrics filtered by type.
 
 **Parameters:**
-- `metric_type` (path): Metric type (pit_count, spm_length, spm_placement, spm_recidivism)
+- `metric_type` (path): Metric type (pit_count, pit_sheltered, pit_unsheltered)
 
 ### Functional Zero
 
@@ -146,17 +156,21 @@ Returns timeline of Functional Zero progress for a CoC.
 
 ## Metric Types
 
-- `pit_count`: Point-in-Time count of homeless individuals
-- `spm_length`: System Performance Measure - length of homelessness
-- `spm_placement`: System Performance Measure - placement rate
-- `spm_recidivism`: System Performance Measure - recidivism rate
+- `pit_count`: total people experiencing homelessness in the January PIT estimate.
+- `pit_sheltered`: people in sheltered locations.
+- `pit_unsheltered`: people in unsheltered locations.
+
+Each metric preserves its year and HUD workbook URL. CoC references include
+historical communities, so use same-year metrics for national totals. Population,
+boundaries, SPM measures, and assessments are absent from the PIT import. JSON
+examples above illustrate API shape, not verified records.
 
 ## Functional Zero Status Values
 
 - `functional_zero`, `approaching`, `not_achieved`: stored project assessments.
 
 The API returns the latest stored assessment per CoC and does not infer achievement
-from absent data. The legacy rate thresholds are project measures, not official
+from absent data. The rate thresholds are project measures, not official
 Functional Zero certification. The timeline endpoint returns all stored assessments.
 
 ## Error Responses
