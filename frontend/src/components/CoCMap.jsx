@@ -4,6 +4,8 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import './CoCMap.css'
+import { ShelterDetails, ShelterMarkers, ShelterViewport, useShelterData } from './ShelterExplorer'
+import { sheltersForCoC } from '../services/shelter-data'
 
 const views = {
   'Contiguous U.S.': [[24, -125], [50, -66]],
@@ -47,9 +49,27 @@ export default function CoCMap({ cocs, year }) {
   const [selectedId, setSelectedId] = useState(null)
   const [region, setRegion] = useState('Contiguous U.S.')
   const [reset, setReset] = useState(0)
+  const [showShelters, setShowShelters] = useState(true)
+  const [shelterMetric, setShelterMetric] = useState('capacity')
+  const [selectedShelterId, setSelectedShelterId] = useState(null)
+  const [shelterFocus, setShelterFocus] = useState(0)
+  const shelterInventory = useShelterData()
   const layerRef = useRef(null)
+  const canvasRef = useRef(null)
   const byId = useMemo(() => new Map(cocs.map(coc => [coc.coc_id, coc])), [cocs])
   const selected = byId.get(selectedId)
+  const shelters = useMemo(() => sheltersForCoC(shelterInventory.data, selected?.coc_id), [shelterInventory.data, selected?.coc_id])
+  const selectedShelter = shelters.find(shelter => shelter.id === selectedShelterId)
+
+  function selectCoC(id) {
+    setSelectedId(id)
+    setSelectedShelterId(null)
+  }
+  function selectShelter(id) {
+    setShowShelters(true)
+    setSelectedShelterId(id)
+    setShelterFocus(value => value + 1)
+  }
 
   useEffect(() => {
     const controller = new AbortController()
@@ -85,7 +105,7 @@ export default function CoCMap({ cocs, year }) {
     const coc = byId.get(feature.properties.coc_id)
     const active = coc?.coc_id === selectedId
     return { color: active ? '#f59e0b' : '#47677c', weight: active ? 3 : 1,
-      fillColor: color(coc?.homeless), fillOpacity: active ? 0.9 : 0.65 }
+      fillColor: color(coc?.homeless), fillOpacity: active ? (showShelters ? 0.12 : 0.65) : 0.45 }
   }
 
   useEffect(() => {
@@ -95,7 +115,7 @@ export default function CoCMap({ cocs, year }) {
       path?.setAttribute('aria-pressed', String(layer.feature.properties.coc_id === selectedId))
       if (layer.feature.properties.coc_id === selectedId) layer.bringToFront()
     })
-  }, [selectedId, layerKey, byId])
+  }, [selectedId, layerKey, byId, showShelters])
 
   function bindFeature(feature, layer) {
     const id = feature.properties.coc_id
@@ -103,7 +123,7 @@ export default function CoCMap({ cocs, year }) {
     const label = document.createElement('span')
     label.textContent = `${coc.name} (${id}) · ${year} PIT: ${count(coc.homeless)}`
     layer.bindTooltip(label, { sticky: true })
-    layer.on('click', () => setSelectedId(id))
+    layer.on('click', () => selectCoC(id))
     layer.on('add', () => {
       const path = layer.getElement()
       if (!path) return
@@ -115,7 +135,7 @@ export default function CoCMap({ cocs, year }) {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
           event.stopPropagation()
-          setSelectedId(id)
+          selectCoC(id)
         }
       })
     })
@@ -126,7 +146,7 @@ export default function CoCMap({ cocs, year }) {
       <div className="coc-map-heading">
         <div>
           <h2 id="coc-map-title">Explore Continuums of Care</h2>
-          <p>Click a region or choose a CoC to see its information.</p>
+          <p>Choose a CoC to explore its counts and public shelter locations. Numbered shelter pins show capacity or occupancy where published.</p>
         </div>
         <span className="coc-map-year">January {year} PIT counts</span>
       </div>
@@ -134,38 +154,53 @@ export default function CoCMap({ cocs, year }) {
         <div className="coc-map-main">
           <div className="coc-map-toolbar">
             <label>Map view
-              <select value={region} onChange={event => { setRegion(event.target.value); setSelectedId(null) }}>
+              <select value={region} onChange={event => { setRegion(event.target.value); selectCoC(null) }}>
                 {Object.keys(views).map(view => <option key={view}>{view}</option>)}
               </select>
             </label>
-            <button type="button" onClick={() => { setSelectedId(null); setReset(value => value + 1) }}>Reset view</button>
+            <label className="coc-map-shelter-toggle"><input type="checkbox" checked={showShelters}
+              onChange={event => setShowShelters(event.target.checked)} />Show shelters</label>
+            <label>Shelter numbers
+              <select value={shelterMetric} onChange={event => setShelterMetric(event.target.value)}>
+                <option value="capacity">Bed capacity</option><option value="occupancy">Occupancy</option>
+              </select>
+            </label>
+            {showShelters && shelters.length > 0 && <button type="button" onClick={() => {
+              setSelectedShelterId(null); setShelterFocus(value => value + 1)
+            }}>Fit shelters</button>}
+            <button type="button" onClick={() => { selectCoC(null); setReset(value => value + 1) }}>Reset view</button>
           </div>
-          <div className="coc-map-canvas" aria-label="Interactive map of Continuum of Care boundaries">
+          <div ref={canvasRef} className="coc-map-canvas" aria-label="Interactive map of Continuum of Care boundaries and public shelters">
             {!boundaries ? (
               <div className="coc-map-message" role={error ? 'alert' : 'status'}>
                 {error ? <><p>Unable to load the map. You can still choose a CoC from the list.</p><button type="button" onClick={() => setRetry(value => value + 1)}>Retry map</button></> : 'Loading CoC boundaries…'}
               </div>
             ) : (
-              <MapContainer center={[38, -96]} zoom={4} zoomSnap={0.25} minZoom={2} maxZoom={13} scrollWheelZoom={false}>
+              <MapContainer center={[38, -96]} zoom={4} zoomSnap={0.25} minZoom={2} maxZoom={18} scrollWheelZoom={true}>
                 <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <GeoJSON key={layerKey} ref={layerRef} data={visible} style={style} onEachFeature={bindFeature} />
                 <MapView selectedFeature={selectedFeature} region={region} reset={reset} />
+                {showShelters && <>
+                  <ShelterMarkers shelters={shelters} metric={shelterMetric} selectedId={selectedShelterId} onSelect={selectShelter} focus={shelterFocus} />
+                  <ShelterViewport shelters={shelters} selectedShelter={selectedShelter} focus={shelterFocus} />
+                </>}
               </MapContainer>
             )}
           </div>
           <div className="coc-map-legend" aria-label="Map legend: PIT count">
             <strong>PIT count</strong>
             {bands.map(band => <span key={band.label}><i style={{ background: band.color }} />{band.label}</span>)}
+            {showShelters && <span><b className="shelter-legend-pin">#</b>Shelter · {shelterMetric === 'capacity' ? 'beds' : 'people'} · — = not reported</span>}
           </div>
         </div>
         <aside className="coc-map-sidebar" aria-label="Find a CoC and view information">
           <div className="coc-map-filters">
             <label htmlFor="coc-map-search">Find a CoC</label>
             <input id="coc-map-search" type="search" value={query} placeholder="Name, state abbreviation, or CoC ID"
-              onChange={event => setQuery(event.target.value)} />
+              onChange={event => { setQuery(event.target.value); selectCoC(null) }} />
             <label htmlFor="coc-map-state">State or territory</label>
-            <select id="coc-map-state" value={state} onChange={event => setState(event.target.value)}>
+            <select id="coc-map-state" value={state} onChange={event => { setState(event.target.value); selectCoC(null) }}>
               <option value="">All states and territories</option>
               {states.map(item => <option key={item}>{item}</option>)}
             </select>
@@ -173,7 +208,7 @@ export default function CoCMap({ cocs, year }) {
           <div className="coc-map-selection" aria-live="polite">
             {selected ? <>
               <div className="coc-map-selection-header"><span>{selected.coc_id} · {selected.state}</span>
-                <button type="button" aria-label="Close selected CoC" onClick={() => setSelectedId(null)}>×</button></div>
+                <button type="button" aria-label="Close selected CoC" onClick={() => selectCoC(null)}>×</button></div>
               <h3>{selected.name}</h3>
               <dl>
                 <div><dt>{year} PIT count</dt><dd>{count(selected.homeless)}</dd></div>
@@ -182,6 +217,9 @@ export default function CoCMap({ cocs, year }) {
                 <div><dt>Population</dt><dd>{count(selected.population)}</dd></div>
                 <div><dt>Functional Zero assessment</dt><dd>{selected.status?.replaceAll('_', ' ') ?? 'No current assessment imported'}</dd></div>
               </dl>
+              {shelterInventory.data && <p className="coc-map-shelter-coverage">{shelters.length ?
+                `${shelters.length} shelter sites mapped below. ${shelterInventory.data.coverage.find(entry => entry.coc_id === selected.coc_id)?.status === 'complete' ? 'Complete published inventory.' : 'Partial inventory.'} ${shelters.every(shelter => shelter.occupancy.value === null) ? 'Occupancy not reported in the imported source.' : 'See dated occupancy values below.'}` :
+                'Shelter-level data not yet imported for this CoC.'}</p>}
               <p><Link to="/functional-zero">View historical Functional Zero achievements</Link></p>
               {boundaries && !selectedFeature && <p className="coc-map-missing">A boundary for this CoC is unavailable in HUD’s FY{boundaries.metadata.boundary_year} map.</p>}
               <Link className="coc-map-detail-link" to={`/coc/${encodeURIComponent(selected.coc_id)}`}>View full details & trends →</Link>
@@ -190,13 +228,21 @@ export default function CoCMap({ cocs, year }) {
           <p className="coc-map-result-count" role="status">{results.length} CoC{results.length === 1 ? '' : 's'} found</p>
           <ul className="coc-map-results">
             {results.map(coc => <li key={coc.coc_id}><button type="button" aria-pressed={selectedId === coc.coc_id}
-              onClick={() => setSelectedId(coc.coc_id)}>
+              onClick={() => selectCoC(coc.coc_id)}>
               <span>{coc.name}</span><small>{coc.coc_id} · PIT {count(coc.homeless)}</small>
             </button></li>)}
             {!results.length && <li className="coc-map-no-results">No CoCs match. Try another name or clear the filters.</li>}
           </ul>
         </aside>
       </div>
+      {shelterInventory.error ? <div className="shelter-details" role="alert"><p>Unable to load shelter data. CoC counts are still available.</p>
+        <button type="button" onClick={shelterInventory.retry}>Retry shelter data</button></div> :
+        !shelterInventory.data ? <p className="coc-map-source" role="status">Loading shelter data…</p> :
+        <ShelterDetails selected={selected} inventory={shelterInventory.data} shelters={shelters}
+          selectedId={selectedShelterId} onSelect={id => {
+            selectShelter(id)
+            canvasRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+          }} shown={showShelters} onShow={() => setShowShelters(true)} />}
       <p className="coc-map-source">
         {boundaries && <>Boundaries: <a href={boundaries.metadata.source} target="_blank" rel="noreferrer">HUD FY{boundaries.metadata.boundary_year}</a>, simplified for display. {mappedCount} of {cocs.length} reporting CoCs mapped. </>}
         Counts are January {year} estimates, not a live census. All reporting CoCs are accessible in the list.

@@ -77,7 +77,19 @@ Returns historical data for a CoC.
 ```
 GET /api/metrics/
 ```
-Returns all available metrics.
+Returns a page of available metrics, ordered by descending year, CoC ID, and
+metric type. `limit` defaults to 1,000 (allowed: 1–5,000); `offset` defaults to 0
+(allowed: 0–1,000,000,000). The response stays an array. Advance the offset by
+the page length until an empty array is returned. The full archive now includes
+PIT history and SPM; a default request does not return the entire archive.
+
+```
+GET /api/metrics/pit/latest
+```
+
+Returns total, sheltered, and unsheltered PIT metrics for the latest year with
+total PIT counts. This compact endpoint powers the dashboard. Newer SPM fiscal
+years do not move the PIT year forward. No imported PIT totals yields `[]`.
 
 **Response:**
 ```json
@@ -117,7 +129,7 @@ GET /api/metrics/type/{metric_type}
 Returns metrics filtered by type.
 
 **Parameters:**
-- `metric_type` (path): Metric type (pit_count, pit_sheltered, pit_unsheltered)
+- `metric_type` (path): Exact metric key, including PIT and SPM types below.
 
 ### Functional Zero
 
@@ -179,8 +191,49 @@ Returns timeline of Functional Zero progress for a CoC.
 
 Each metric preserves its year and HUD workbook URL. CoC references include
 historical communities, so use same-year metrics for national totals. Population,
-boundaries, SPM measures, and assessments are absent from the PIT import. JSON
+boundaries, and assessments are absent from the PIT import. The separate SPM
+import covers FY2015–2024. JSON
 examples above illustrate API shape, not verified records.
+
+PIT history covers 2007–2025. In 2021 only `pit_sheltered` is imported; no total
+or unsheltered count is inferred. National totals reconcile independently for
+each imported year, including the sheltered-only 2021 measure.
+
+### System performance metric keys
+
+SPM `year` is the federal fiscal year (October 1 through September 30), not the
+January PIT count year. Each result includes the original HUD workbook URL.
+
+| Keys | Units / meaning |
+| --- | --- |
+| `spm_length_es_sh_avg`, `spm_length_es_sh_median` | Days in emergency shelter / safe haven |
+| `spm_length_es_sh_th_avg`, `spm_length_es_sh_th_median` | Days including transitional housing |
+| `spm_returns_universe`, `spm_returns_6m`, `spm_returns_12m`, `spm_returns_24m` | People in the All-project return cohort / returning within each period |
+| `spm_returns_6m_rate`, `spm_returns_12m_rate`, `spm_returns_24m_rate` | Percent returning within each period |
+| `spm_hmis_count` | People in the HMIS measure |
+| `spm_stayers`, `spm_leavers` | People in CoC-funded project income cohorts |
+| `spm_{stayers,leavers}_{earned,nonemployment,total}_income` | People with increased income in each cohort |
+| The same income keys with `_rate` appended | Percent with increased income |
+| `spm_first_time_es_sh_th`, `spm_first_time_es_sh_th_ph` | People homeless for the first time in the named project types |
+| `spm_so_exits`, `spm_so_temporary`, `spm_so_permanent` | Street outreach exits and destinations |
+| `spm_so_success` | Percent with successful street outreach outcomes |
+| `spm_housing_exits`, `spm_housing_exits_permanent`, `spm_housing_exit_rate` | ES / TH / SH / RRH exits, permanent destinations, and percent successful |
+| `spm_ph_universe`, `spm_ph_success`, `spm_ph_retention_rate` | PH outcome cohort, successful retention/exits, and percent successful; excludes RRH |
+| `spm_non_dv_beds`, `spm_non_dv_hmis_beds`, `spm_bed_coverage` | Non-DV ES / TH beds, HMIS beds, and percent coverage |
+
+Braces in this table describe naming alternatives, not literal API keys. Rate
+values are percentages (e.g. `12.5` with `unit: "percent"`), converted from HUD's
+source fractions. Invalid, missing, and NA cells produce no metric row. Valid
+reported zeros remain zero. Import manifests audit the exclusions. Measures
+depend on local HMIS coverage and data quality; do not sum CoC rates or treat
+HMIS counts as PIT totals. FY2015 has older PH and street outreach header labels;
+the importer explicitly maps these rather than guessing column positions.
+
+`MO-604K` and `MO-604M` are source SPM reporting units. They are deliberately
+separate from PIT `MO-604`; their rates and averages are never combined or used
+as a current interstate CoC assessment. They have detail/API records and no
+inferred PIT data. Historical references without latest-year PIT totals do not
+appear in dashboard totals.
 
 ## Functional Zero Status Values
 

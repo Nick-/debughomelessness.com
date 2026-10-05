@@ -1,5 +1,8 @@
 # Homelessness KPI Tracker
 
+[![Donate once via GitHub Sponsors](https://img.shields.io/badge/Donate_once-GitHub_Sponsors-ea4aaa?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Nick-?frequency=one-time)
+[![Donate monthly via GitHub Sponsors](https://img.shields.io/badge/Donate_monthly-GitHub_Sponsors-2c3e50?style=for-the-badge&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Nick-?frequency=recurring)
+
 A React dashboard and public read-only API for aggregate homelessness data.
 Cloudflare Workers serves the app and API; Cloudflare D1 stores verified imports.
 The production site is [debughomelessness.com](https://debughomelessness.com).
@@ -7,7 +10,7 @@ The production site is [debughomelessness.com](https://debughomelessness.com).
 ## Data
 
 The initial import uses HUD's [2025 AHAR PIT release](https://www.huduser.gov/portal/datasets/ahar/2025-ahar-part-1-pit-estimates-of-homelessness-in-the-us.html),
-published in May 2026, with 2022–2025 history. The 2025 dataset covers 386 CoCs and
+published in May 2026, with 2007–2025 history. The 2025 dataset covers 386 CoCs and
 745,652 people. PIT estimates describe one night in January. HUD carries forward
 unsheltered estimates for some communities in sheltered-only count years.
 
@@ -16,8 +19,20 @@ and the next expected dataset. January 2026 counts are the expected next annual
 dataset; HUD has not announced a publication date on its AHAR release pages.
 That expectation is not a scheduled site update. Imports are reviewed manually.
 
-Missing population, SPM metrics, and current Functional Zero assessments
-remain unavailable. PIT counts alone do not establish Functional Zero status.
+HUD's System Performance Measures workbook supplies 41 measures for FY2015–2024,
+including time homeless, returns, income, first-time homelessness, housing
+outcomes, and HMIS coverage. Detail pages offer a fiscal-year selector and source
+link. Missing and invalid cells stay unavailable; the import manifest lists
+excluded cells. MO-604K and MO-604M retain their separate SPM reporting identities.
+Only sheltered PIT counts are imported for 2021; the historical chart preserves
+the missing total instead of connecting across it. Every PIT year reconciles
+with HUD's national totals and its separate state workbook.
+
+CoC population and current Functional Zero assessments remain unavailable.
+HUD's documented CoC population tool download was unavailable during review;
+city, county, or state populations are not substituted for unverified CoC coverage.
+See [data coverage and remaining gaps](docs/DATA-COVERAGE.md).
+PIT counts alone do not establish Functional Zero status.
 The Functional Zero page separately lists Community Solutions' documented
 historical milestones for 14 communities and the veteran/chronic populations
 covered. It includes a source link and review date. These achievements are not
@@ -39,6 +54,13 @@ The checked-in boundary snapshot is generated from the official HUD layer with
 and saves source metadata in `frontend/public/data/coc-boundaries.json`. Review
 the layer's stated coverage year before updating the script for a new vintage.
 The map is served from the site's own assets; background tiles use OpenStreetMap.
+
+The map also supports numbered shelter pins with capacity and occupancy views,
+addresses, dated metrics and per-facility sources. The initial snapshot covers
+five public Broward (FL-601) emergency shelter sites using January 2025 HUD HIC
+bed inventory. Coverage is partial; the source does not publish occupancy, so
+those values remain unavailable. Other CoCs explicitly show missing shelter
+coverage. See [shelter data and refresh instructions](docs/SHELTER-DATA.md).
 
 ## Local development
 
@@ -66,8 +88,10 @@ API, database, validation, and deployment run with Node.js and Cloudflare.
 ```sh
 python -m pip install -r scripts/requirements-import.txt
 python scripts/prepare-hud-import.py --download
-python -m unittest discover -s scripts -p "test_hud_import.py"
+python scripts/prepare-spm-import.py --download
+python -m unittest discover -s scripts -p "test_*import.py"
 npx wrangler d1 execute DB --local --file data/import/hud-pit.sql
+npx wrangler d1 execute DB --local --file data/import/hud-spm.sql
 ```
 
 Preparation checks unique IDs, nonnegative integer counts, sheltered/unsheltered
@@ -82,8 +106,11 @@ remote backup, apply pending migrations, and import:
 
 ```sh
 npx wrangler d1 export DB --remote --output data/before-import.sql
+npm run validate
 npm run db:migrate:remote
+npm run deploy:worker
 npx wrangler d1 execute DB --remote --file data/import/hud-pit.sql
+npx wrangler d1 execute DB --remote --file data/import/hud-spm.sql
 npm run smoke
 ```
 
@@ -91,6 +118,13 @@ The database records import time when SQL is applied. Source files, generated
 SQL, manifests, and backups under `data/` are ignored by Git. Update source
 constants and release expectations in the preparation script when a new HUD
 release is verified. No recurring import or monitor is installed.
+Review `data/import/hud-spm-manifest.json` as well. The SPM importer matches
+reviewed headers, converts source fractions to percentages, audits invalid cells,
+and records missing coverage by metric and year. Reimports replace this source's
+SPM snapshot within the reviewed years so previously reported cells cannot linger
+after becoming unavailable. It preserves PIT metrics, populations, and assessments.
+Deploy the updated dashboard/API before the expanded remote import: the dashboard
+uses a compact latest-PIT endpoint, and the full metrics archive is paginated.
 
 ## Validation and release
 

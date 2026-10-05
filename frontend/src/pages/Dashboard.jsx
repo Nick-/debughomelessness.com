@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './Dashboard.css'
-import { getCocs, getMetrics, getFunctionalZeroStatus, getFunctionalZeroAchievements } from '../services/api'
+import { getCocs, getLatestPitMetrics, getFunctionalZeroStatus, getFunctionalZeroAchievements } from '../services/api'
 import CoCMap from '../components/CoCMap'
 
 const Dashboard = () => {
@@ -20,7 +20,7 @@ const Dashboard = () => {
   useEffect(() => {
     let active = true
     getFunctionalZeroAchievements().then(data => { if (active) setAchievements(data) }).catch(() => {})
-    Promise.all([getCocs(), getMetrics(), getFunctionalZeroStatus()])
+    Promise.all([getCocs(), getLatestPitMetrics(), getFunctionalZeroStatus()])
       .then(([cocs, metrics, statuses]) => {
         if (!active) return
         const pits = metrics.filter(m => m.metric_type === 'pit_count')
@@ -35,7 +35,7 @@ const Dashboard = () => {
           return { ...coc, name: coc.name || coc.coc_id, homeless: pit?.value ?? null,
             sheltered: currentMetrics.get(`${coc.coc_id}:pit_sheltered`) ?? null,
             unsheltered: currentMetrics.get(`${coc.coc_id}:pit_unsheltered`) ?? null,
-            functionalZero: status?.status === 'functional_zero', status: status?.status }
+            status: status?.status }
         }))
       })
       .catch(() => { if (active) setError('Unable to load the dashboard. Please try again later.') })
@@ -84,21 +84,6 @@ const Dashboard = () => {
             <Bar dataKey="homeless" name="PIT count" fill="#3498db" />
           </BarChart>
         </ResponsiveContainer>
-      </div>
-
-      <div className="dashboard-coc-list">
-        <h2>Continuums of Care</h2>
-        <div className="coc-grid">
-          {cocData.map(coc => (
-            <Link key={coc.coc_id} to={`/coc/${encodeURIComponent(coc.coc_id)}`} className="coc-card">
-              <h3>{coc.name}</h3>
-              <p>{latestYear} PIT count: {coc.homeless?.toLocaleString() ?? 'Not available'}</p>
-              <span className={`status ${!coc.status ? 'unavailable' : coc.functionalZero ? 'functional-zero' : 'not-achieved'}`}>
-                {coc.status ? coc.status.replaceAll('_', ' ') : 'Current status not assessed'}
-              </span>
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   )

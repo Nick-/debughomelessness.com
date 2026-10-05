@@ -15,7 +15,7 @@ from pyxlsb import open_workbook
 
 SOURCE_PAGE = 'https://www.huduser.gov/portal/datasets/ahar/2025-ahar-part-1-pit-estimates-of-homelessness-in-the-us.html'
 SOURCE_ROOT = 'https://www.huduser.gov/portal/sites/default/files/xls/'
-YEARS = range(2022, 2026)
+YEARS = range(2007, 2026)
 FIELDS = {
     'pit_count': 'Overall Homeless',
     'pit_sheltered': 'Sheltered Total Homeless',
@@ -40,17 +40,20 @@ def coc_id(value):
 
 def read_year(path, year, is_state=False):
     key = 'State' if is_state else 'CoC Number'
+    # HUD's 2021 national estimates cover sheltered homelessness only.
+    fields = {'pit_sheltered': FIELDS['pit_sheltered']} if year == 2021 else FIELDS
     with open_workbook(str(path)) as workbook, workbook.get_sheet(str(year)) as sheet:
         rows = sheet.rows()
         headers = [cell.v for cell in next(rows)]
-        required = [key, *FIELDS.values()] + ([] if is_state else ['CoC Name', 'Count Types'])
+        required = [key, *fields.values()] + ([] if is_state else ['CoC Name'])
         positions = {}
         for name in required:
             if headers.count(name) != 1:
                 raise ValueError(f'{path.name}, {year}: missing or duplicate header {name}')
             positions[name] = headers.index(name)
-        if 'CoC Category' in headers:
-            positions['CoC Category'] = headers.index('CoC Category')
+        for optional in ['CoC Category', 'Count Types']:
+            if optional in headers:
+                positions[optional] = headers.index(optional)
         records, national = {}, None
         for cells in rows:
             values = [cell.v for cell in cells]
@@ -60,28 +63,28 @@ def read_year(path, year, is_state=False):
             if is_total:
                 if national is not None:
                     raise ValueError(f'{year}: duplicate national total')
-                national = {metric: count(row[column]) for metric, column in FIELDS.items()}
+                national = {metric: count(row[column]) for metric, column in fields.items()}
                 continue
             # Empty rows and explanatory footnotes have no CoC name or counts.
             if not is_state and not row['CoC Name']:
                 continue
             if is_state and not (isinstance(raw_id, str) and re.fullmatch(r'[A-Z]{2}', raw_id)):
                 continue
-            if is_state and all(row[column] is None or (isinstance(row[column], str) and not row[column].strip()) for column in FIELDS.values()):
+            if is_state and all(row[column] is None or (isinstance(row[column], str) and not row[column].strip()) for column in fields.values()):
                 # HUD leaves all PIT fields blank for territories without data.
                 # Preserve absence; never manufacture zero counts.
                 continue
             identifier = raw_id if is_state else coc_id(raw_id)
             if identifier in records:
                 raise ValueError(f'{year}: duplicate identifier {identifier}')
-            metrics = {metric: count(row[column]) for metric, column in FIELDS.items()}
-            if metrics['pit_count'] != metrics['pit_sheltered'] + metrics['pit_unsheltered']:
+            metrics = {metric: count(row[column]) for metric, column in fields.items()}
+            if year != 2021 and metrics['pit_count'] != metrics['pit_sheltered'] + metrics['pit_unsheltered']:
                 raise ValueError(f'{year}, {identifier}: sheltered + unsheltered does not equal total')
             records[identifier] = {'metrics': metrics, 'name': row.get('CoC Name'),
                                    'region_type': row.get('CoC Category'), 'count_type': row.get('Count Types')}
         if not records or national is None:
             raise ValueError(f'{year}: missing records or national total')
-        totals = {metric: sum(r['metrics'][metric] for r in records.values()) for metric in FIELDS}
+        totals = {metric: sum(r['metrics'][metric] for r in records.values()) for metric in fields}
         if totals != national:
             raise ValueError(f'{year}: row sums {totals} differ from HUD totals {national}')
         return records, totals
@@ -90,9 +93,30 @@ def read_year(path, year, is_state=False):
 def sql_literal(value):
     if value is None:
         return 'NULL'
-    if isinstance(value, int):
+    if isinstance(value, (int, float)):
         return str(value)
     return "'" + str(value).replace("'", "''") + "'"
+
+
+def metric_statements(metrics):
+    # Batched VALUES avoids hundreds of thousands of separate D1 calls. Keep
+    # each SQL statement below D1's 100 KB statement-size limit.
+    prefix = 'INSERT INTO metrics (coc_id, metric_type, year, value, unit, source) VALUES '
+    suffix = (' ON CONFLICT(coc_id, metric_type, year) DO UPDATE SET value=excluded.value, '
+              'unit=excluded.unit, source=excluded.source, updated_at=CURRENT_TIMESTAMP;')
+    rows, size = [], len((prefix + suffix).encode('utf-8'))
+    for metric in metrics:
+        row = '(' + ', '.join(sql_literal(value) for value in metric) + ')'
+        row_size = len(row.encode('utf-8')) + 2
+        if size + row_size > 90000 and rows:
+            yield prefix + ', '.join(rows) + suffix
+            rows, size = [], len((prefix + suffix).encode('utf-8'))
+        if size + row_size > 90000:
+            raise ValueError('Metric row exceeds SQL statement-size budget')
+        rows.append(row)
+        size += row_size
+    if rows:
+        yield prefix + ', '.join(rows) + suffix
 
 
 def prepare(coc_path, state_path, output_dir):
@@ -109,21 +133,19 @@ def prepare(coc_path, state_path, output_dir):
             for metric, value in row['metrics'].items():
                 metrics.append((identifier, metric, year, value, 'count', SOURCE_ROOT + coc_path.name))
         summaries.append({'year': year, 'cocs': len(records), **totals,
-                          'sheltered_only_cocs': sum(r['count_type'].startswith('Sheltered-Only') for r in records.values())})
+                          'sheltered_only_cocs': sum((r['count_type'] or '').startswith('Sheltered-Only') for r in records.values())})
     imported_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
     digest = hashlib.sha256(coc_path.read_bytes()).hexdigest()
     metadata = ('hud_pit', min(YEARS), max(YEARS), SOURCE_PAGE, 'May 2026', digest, imported_at, 2026, None,
                 'The next annual dataset is expected to cover January 2026. HUD has not announced a publication date on its AHAR release pages.',
-                'PIT estimates describe one night in January, not a current live census. HUD carries forward unsheltered estimates for some CoCs in years with sheltered-only counts. Population and Functional Zero assessments are not included in this import.')
+                'PIT estimates describe one night in January, not a current live census. HUD carries forward unsheltered estimates for some CoCs in years with sheltered-only counts. Only sheltered counts are imported for 2021 because pandemic disruptions prevented a comparable national total. CoC boundaries and reporting coverage change over time. Population and Functional Zero assessments are not included in this import.')
     sql = ['-- Verified HUD 2025 AHAR PIT import. Generated by scripts/prepare-hud-import.py.']
     for identifier, row in sorted(references.items()):
         values = ', '.join(sql_literal(v) for v in (identifier, row['name'], row['state'], row['region_type']))
         sql.append('INSERT INTO continuums_of_care (coc_id, name, state, region_type) VALUES (' + values + ') '
                    'ON CONFLICT(coc_id) DO UPDATE SET name=excluded.name, state=excluded.state, '
                    'region_type=excluded.region_type, updated_at=CURRENT_TIMESTAMP;')
-    for row in metrics:
-        sql.append('INSERT INTO metrics (coc_id, metric_type, year, value, unit, source) VALUES (' + ', '.join(sql_literal(v) for v in row) + ') '
-                   'ON CONFLICT(coc_id, metric_type, year) DO UPDATE SET value=excluded.value, unit=excluded.unit, source=excluded.source, updated_at=CURRENT_TIMESTAMP;')
+    sql.extend(metric_statements(metrics))
     columns = ('dataset', 'first_year', 'latest_year', 'source_url', 'source_published', 'source_sha256', 'imported_at',
                'next_expected_year', 'next_release_date', 'next_release_note', 'methodology_note')
     metadata_values = ["strftime('%Y-%m-%dT%H:%M:%SZ', 'now')" if column == 'imported_at' else sql_literal(value)

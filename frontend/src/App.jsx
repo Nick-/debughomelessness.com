@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 import DataFreshness from './components/DataFreshness'
 import Dashboard from './pages/Dashboard'
 import CoCDetail from './pages/CoCDetail'
@@ -20,6 +21,7 @@ function App() {
             <Route path="/functional-zero" element={<FunctionalZero />} />
           </Routes>
         </main>
+        <Footer />
       </div>
     </Router>
   )

@@ -19,6 +19,17 @@ const Navbar = () => {
           <li className="navbar-item">
             <Link to="/functional-zero" className="navbar-link">Functional Zero</Link>
           </li>
+          <li className="navbar-item">
+            <a
+              href="https://github.com/sponsors/Nick-"
+              className="navbar-link navbar-donate"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Donate via GitHub Sponsors (opens in a new tab)"
+            >
+              Donate
+            </a>
+          </li>
         </ul>
       </div>
     </nav>

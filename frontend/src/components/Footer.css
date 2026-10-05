@@ -1,0 +1,42 @@
+.site-footer {
+  background-color: #2c3e50;
+  color: white;
+  padding: 1rem 0;
+}
+
+.site-footer-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+}
+
+.site-footer a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: white;
+  text-underline-offset: 4px;
+}
+
+.site-footer a:hover {
+  color: #dbeafe;
+}
+
+.site-footer a:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+  .site-footer-container {
+    padding: 0 1rem;
+    flex-direction: column;
+    text-align: center;
+  }
+}

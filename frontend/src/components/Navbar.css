@@ -23,6 +23,9 @@
 
 .navbar-menu {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
   list-style: none;
   gap: 2rem;
   margin: 0;
@@ -37,6 +40,30 @@
 
 .navbar-link:hover {
   color: #3498db;
+}
+
+.navbar-donate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #2c3e50;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+
+.navbar-donate:hover {
+  background-color: #dbeafe;
+  color: #2c3e50;
+}
+
+.navbar-link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 4px;
+  border-radius: 4px;
 }
 
 @media (max-width: 768px) {

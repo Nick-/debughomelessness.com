@@ -1,0 +1,188 @@
+{
+  "reviewed_at": "2026-10-05",
+  "coverage": [
+    {
+      "coc_id": "FL-601",
+      "status": "partial",
+      "note": "Five public emergency shelter sites matched to HUD's January 2025 HIC projects. This is a partial inventory, not all Broward shelters or beds. Confidential sites and projects without a verified service-site address are excluded. HIC reports bed inventory, not shelter occupancy."
+    }
+  ],
+  "shelters": [
+    {
+      "id": "fl-601-central",
+      "coc_id": "FL-601",
+      "number": 1,
+      "name": "Central Homeless Assistance Center",
+      "provider": "Broward Partnership",
+      "address": "920 NW 7th Avenue, Fort Lauderdale, FL 33311",
+      "address_source": "https://bphi.org/contact-us/",
+      "type": "Emergency shelter",
+      "capacity": {
+        "value": 170,
+        "period": "January 2025",
+        "source": "https://files.hudexchange.info/reports/published/CoC_HIC_CoC_FL-601-2025_FL_2025.pdf",
+        "source_page": 2,
+        "family_beds": 52,
+        "adult_beds": 118,
+        "child_beds": 0,
+        "seasonal_beds": 0,
+        "overflow_beds": 0
+      },
+      "occupancy": {
+        "value": null,
+        "as_of": null,
+        "source": null
+      },
+      "note": "Capacity is the emergency shelter project inventory reported to HUD, not the whole campus's physical capacity.",
+      "location": {
+        "lat": 26.136327144418,
+        "lng": -80.150923501452,
+        "source": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=920+NW+7th+Avenue%2C+Fort+Lauderdale%2C+FL+33311&benchmark=Public_AR_Current&format=json",
+        "matched_address": "920 NW 7TH AVE, FORT LAUDERDALE, FL, 33311",
+        "method": "U.S. Census address-range geocode; approximate street location",
+        "geocoded_at": "2026-10-05T04:27:38.370Z"
+      }
+    },
+    {
+      "id": "fl-601-north",
+      "coc_id": "FL-601",
+      "number": 2,
+      "name": "North Homeless Assistance Center",
+      "provider": "Broward Partnership",
+      "address": "1700 Blount Road, Pompano Beach, FL 33069",
+      "address_source": "https://bphi.org/contact-us/",
+      "type": "Emergency shelter",
+      "capacity": {
+        "value": 268,
+        "period": "January 2025",
+        "source": "https://files.hudexchange.info/reports/published/CoC_HIC_CoC_FL-601-2025_FL_2025.pdf",
+        "source_page": 2,
+        "family_beds": 46,
+        "adult_beds": 222,
+        "child_beds": 0,
+        "seasonal_beds": 0,
+        "overflow_beds": 0
+      },
+      "occupancy": {
+        "value": null,
+        "as_of": null,
+        "source": null
+      },
+      "note": "Capacity is the emergency shelter project inventory reported to HUD.",
+      "location": {
+        "lat": 26.252040098495,
+        "lng": -80.163781380181,
+        "source": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1700+Blount+Road%2C+Pompano+Beach%2C+FL+33069&benchmark=Public_AR_Current&format=json",
+        "matched_address": "1700 BLOUNT RD, POMPANO BEACH, FL, 33069",
+        "method": "U.S. Census address-range geocode; approximate street location",
+        "geocoded_at": "2026-10-05T04:27:39.032Z"
+      }
+    },
+    {
+      "id": "fl-601-south",
+      "coc_id": "FL-601",
+      "number": 3,
+      "name": "South Homeless Assistance Center",
+      "provider": "The Caring Place / Broward Outreach Center",
+      "address": "2056 Scott Street, Hollywood, FL 33020",
+      "address_source": "https://caringplace.org/miami-location/",
+      "type": "Emergency shelter",
+      "capacity": {
+        "value": 110,
+        "period": "January 2025",
+        "source": "https://files.hudexchange.info/reports/published/CoC_HIC_CoC_FL-601-2025_FL_2025.pdf",
+        "source_page": 2,
+        "family_beds": 23,
+        "adult_beds": 77,
+        "child_beds": 0,
+        "seasonal_beds": 0,
+        "overflow_beds": 10
+      },
+      "occupancy": {
+        "value": null,
+        "as_of": null,
+        "source": null
+      },
+      "note": "The 110 reported beds include 10 overflow / voucher beds. The pin locates the public shelter address, not individual overflow beds.",
+      "location": {
+        "lat": 26.029766302084,
+        "lng": -80.148597318212,
+        "source": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=2056+Scott+Street%2C+Hollywood%2C+FL+33020&benchmark=Public_AR_Current&format=json",
+        "matched_address": "2056 SCOTT ST, HOLLYWOOD, FL, 33020",
+        "method": "U.S. Census address-range geocode; approximate street location",
+        "geocoded_at": "2026-10-05T04:27:39.872Z"
+      }
+    },
+    {
+      "id": "fl-601-lippman",
+      "coc_id": "FL-601",
+      "number": 4,
+      "name": "Lippman Youth Shelter",
+      "provider": "Lutheran Services Florida",
+      "address": "221 NW 43rd Court, Oakland Park, FL 33309",
+      "address_source": "https://lsffamilyfocus.org/lippman-youth-shelter-lsf-family-focus/",
+      "type": "Youth emergency shelter",
+      "capacity": {
+        "value": 4,
+        "period": "January 2025",
+        "source": "https://files.hudexchange.info/reports/published/CoC_HIC_CoC_FL-601-2025_FL_2025.pdf",
+        "source_page": 2,
+        "family_beds": 0,
+        "adult_beds": 0,
+        "child_beds": 4,
+        "seasonal_beds": 0,
+        "overflow_beds": 0
+      },
+      "occupancy": {
+        "value": null,
+        "as_of": null,
+        "source": null
+      },
+      "note": "Four beds are reported in this HUD HIC project; this is not a count of all residential beds operated by LSF.",
+      "location": {
+        "lat": 26.180253254207,
+        "lng": -80.148639576424,
+        "source": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=221+NW+43rd+Court%2C+Oakland+Park%2C+FL+33309&benchmark=Public_AR_Current&format=json",
+        "matched_address": "221 NW 43RD CT, OAKLAND PARK, FL, 33309",
+        "method": "U.S. Census address-range geocode; approximate street location",
+        "geocoded_at": "2026-10-05T04:27:40.024Z"
+      }
+    },
+    {
+      "id": "fl-601-open-door",
+      "label_side": "left",
+      "coc_id": "FL-601",
+      "number": 5,
+      "name": "Salvation Army Open Door Shelter",
+      "provider": "The Salvation Army",
+      "address": "1445 W Broward Boulevard, Fort Lauderdale, FL 33312",
+      "address_source": "https://www.adrcbroward.org/sites/default/files/documents/October_2023_AAA_%20Resource_Directory.pdf",
+      "type": "Emergency shelter",
+      "capacity": {
+        "value": 28,
+        "period": "January 2025",
+        "source": "https://files.hudexchange.info/reports/published/CoC_HIC_CoC_FL-601-2025_FL_2025.pdf",
+        "source_page": 2,
+        "family_beds": 0,
+        "adult_beds": 28,
+        "child_beds": 0,
+        "seasonal_beds": 0,
+        "overflow_beds": 0
+      },
+      "occupancy": {
+        "value": null,
+        "as_of": null,
+        "source": null
+      },
+      "note": "Only the Open Door project inventory is counted. Other Salvation Army projects are excluded. Address is published in the local Area Agency on Aging's October 2023 directory (page 169).",
+      "location": {
+        "lat": 26.122060831501,
+        "lng": -80.160429502956,
+        "source": "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=1445+W+Broward+Boulevard%2C+Fort+Lauderdale%2C+FL+33312&benchmark=Public_AR_Current&format=json",
+        "matched_address": "1445 W BROWARD BLVD, FORT LAUDERDALE, FL, 33312",
+        "method": "U.S. Census address-range geocode; approximate street location",
+        "geocoded_at": "2026-10-05T04:27:40.743Z"
+      }
+    }
+  ]
+}

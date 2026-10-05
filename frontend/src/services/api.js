@@ -28,8 +28,10 @@ export const getCocHistory = async (cocId, years = 5) => {
 }
 
 // Metrics API calls
-export const getMetrics = async () => {
-  const response = await api.get('/api/metrics/')
+export const getLatestPitMetrics = async () => (await api.get('/api/metrics/pit/latest')).data
+
+export const getMetrics = async (limit = 1000, offset = 0) => {
+  const response = await api.get('/api/metrics/', { params: { limit, offset } })
   return response.data
 }
 

@@ -120,3 +120,21 @@ test('data update metadata distinguishes an empty import and an unannounced rele
   assert.equal((await f.request('/api/data-status', 'POST')).status, 405);
   assert.equal(await (await f.request('/api/data-status', 'HEAD')).text(), '');
 });
+
+test('latest PIT endpoint excludes SPM, older counts, and non-reporting CoCs; all metrics paginate', async t => {
+  const f = fixture(); t.after(() => f.db.close());
+  f.db.exec(`INSERT INTO metrics(coc_id, metric_type, year, value) VALUES
+    ('TEST-001', 'pit_sheltered', 2024, 15), ('TEST-001', 'pit_unsheltered', 2024, 5),
+    ('TEST-001', 'spm_hmis_count', 2025, 500);`);
+  const latest = await (await f.request('/api/metrics/pit/latest')).json();
+  assert.deepEqual(latest.map(m => m.metric_type), ['pit_count', 'pit_sheltered', 'pit_unsheltered']);
+  assert.ok(latest.every(m => m.year === 2024));
+  const all = await (await f.request('/api/metrics')).json();
+  const page = await (await f.request('/api/metrics?limit=2&offset=2')).json();
+  assert.deepEqual(page, all.slice(2, 4));
+  for (const query of ['limit=0', 'limit=5001', 'offset=-1']) {
+    assert.equal((await f.request(`/api/metrics?${query}`)).status, 422);
+  }
+  f.db.exec('DELETE FROM metrics');
+  assert.deepEqual(await (await f.request('/api/metrics/pit/latest')).json(), []);
+});

@@ -31,9 +31,9 @@ class FakeSheet:
 class ImportTests(unittest.TestCase):
     headers = ['CoC Number', 'CoC Name', 'Count Types', *hud.FIELDS.values()]
 
-    def read(self, rows, is_state=False):
+    def read(self, rows, is_state=False, year=2025):
         with patch.object(hud, 'open_workbook', return_value=FakeSheet(rows)):
-            return hud.read_year(Path('test.xlsb'), 2025, is_state)
+            return hud.read_year(Path('test.xlsb'), year, is_state)
 
     def test_footnote_total_and_blank_rows(self):
         records, total = self.read([self.headers,
@@ -71,6 +71,19 @@ class ImportTests(unittest.TestCase):
             ['AS', ' ', ' ', ' '], ['CA', 5, 3, 2], ['Total', 5, 3, 2]], True)
         self.assertNotIn('AS', records)
 
+    def test_earliest_year_without_count_type_header(self):
+        records, _ = self.read([
+            ['CoC Number', 'CoC Name', *hud.FIELDS.values()],
+            ['CA-501', 'CoC', 5, 3, 2], [None, 'Total', 5, 3, 2]], year=2007)
+        self.assertIsNone(records['CA-501']['count_type'])
+
+    def test_2021_keeps_only_comparable_sheltered_counts(self):
+        records, totals = self.read([self.headers,
+            ['CA-501', 'CoC', 'Sheltered-Only', None, 3, None],
+            [None, 'Total', '', 99, 3, 96]], year=2021)
+        self.assertEqual(records['CA-501']['metrics'], {'pit_sheltered': 3})
+        self.assertEqual(totals, {'pit_sheltered': 3})
+
     def test_source_control_disagreement_prevents_output(self):
         record = {'CA-501': {'metrics': {'pit_count': 5, 'pit_sheltered': 3, 'pit_unsheltered': 2},
                             'name': 'CoC', 'region_type': None, 'count_type': 'Sheltered and Unsheltered Count'}}
@@ -81,6 +94,15 @@ class ImportTests(unittest.TestCase):
                     hud.prepare(Path('coc.xlsb'), Path('state.xlsb'), output)
             self.assertFalse(output.exists())
 
+    def test_batched_statements_respect_byte_limit_and_preserve_fractional_values(self):
+        rows = [('CA-501', 'spm_length_es_sh_avg', 2024, index + 0.5, 'days', 'https://example.test/' + 'é' * 100)
+                for index in range(1000)]
+        statements = list(hud.metric_statements(rows))
+        self.assertGreater(len(statements), 1)
+        self.assertTrue(all(len(statement.encode('utf-8')) <= 90000 for statement in statements))
+        self.assertIn('0.5', statements[0])
+        self.assertEqual(sum(statement.count("('CA-501'") for statement in statements), len(rows))
+
     def test_generated_sql_is_repeatable_and_preserves_missing_data(self):
         values = {'pit_count': 5, 'pit_sheltered': 3, 'pit_unsheltered': 2}
         record = {'MO-604': {'metrics': values, 'name': "Kansas City's CoC", 'region_type': 'Major City CoC',
@@ -89,7 +111,7 @@ class ImportTests(unittest.TestCase):
             raw = Path(directory) / '2007-2025-PIT-Counts-by-CoC.xlsb'
             state = Path(directory) / '2007-2025-PIT-Counts-by-State.xlsb'
             raw.write_bytes(b'coc-source'); state.write_bytes(b'state-source')
-            with patch.object(hud, 'read_year', return_value=(record, values)):
+            with patch.object(hud, 'YEARS', range(2022, 2026)), patch.object(hud, 'read_year', return_value=(record, values)):
                 manifest = hud.prepare(raw, state, Path(directory) / 'output')
             self.assertEqual(manifest['metric_count'], 12)
             with sqlite3.connect(':memory:') as db:

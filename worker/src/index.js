@@ -51,7 +51,15 @@ async function api(request, env, path, url) {
       ORDER BY year, metric_type`, id, id, years) });
   }
   if ((match = path.match(/^\/api\/coc\/([^/]+)$/))) return json(await requireCoc(match[1]));
-  if (path === '/api/metrics') return json(await all('SELECT * FROM metrics ORDER BY year DESC, coc_id, metric_type'));
+  if (path === '/api/metrics/pit/latest') return json(await all(`SELECT * FROM metrics
+    WHERE year = (SELECT MAX(year) FROM metrics WHERE metric_type = 'pit_count')
+      AND metric_type IN ('pit_count', 'pit_sheltered', 'pit_unsheltered')
+    ORDER BY coc_id, metric_type`));
+  if (path === '/api/metrics') {
+    const limit = integer(url.searchParams.get('limit'), 'limit', 1000, 1, 5000);
+    const offset = integer(url.searchParams.get('offset'), 'offset', 0, 0, 1000000000);
+    return json(await all('SELECT * FROM metrics ORDER BY year DESC, coc_id, metric_type LIMIT ? OFFSET ?', limit, offset));
+  }
   if ((match = path.match(/^\/api\/metrics\/coc\/([^/]+)$/))) {
     const id = match[1];
     await requireCoc(id);
