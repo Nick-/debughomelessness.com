@@ -180,8 +180,9 @@ export default function CoCMap({ cocs, year }) {
                 <div><dt>Sheltered</dt><dd>{count(selected.sheltered)}</dd></div>
                 <div><dt>Unsheltered</dt><dd>{count(selected.unsheltered)}</dd></div>
                 <div><dt>Population</dt><dd>{count(selected.population)}</dd></div>
-                <div><dt>Functional Zero</dt><dd>{selected.status?.replaceAll('_', ' ') ?? 'Not available'}</dd></div>
+                <div><dt>Functional Zero assessment</dt><dd>{selected.status?.replaceAll('_', ' ') ?? 'No current assessment imported'}</dd></div>
               </dl>
+              <p><Link to="/functional-zero">View historical Functional Zero achievements</Link></p>
               {boundaries && !selectedFeature && <p className="coc-map-missing">A boundary for this CoC is unavailable in HUD’s FY{boundaries.metadata.boundary_year} map.</p>}
               <Link className="coc-map-detail-link" to={`/coc/${encodeURIComponent(selected.coc_id)}`}>View full details & trends →</Link>
             </> : <p>Select a region on the map or a CoC below to view its PIT counts and details.</p>}

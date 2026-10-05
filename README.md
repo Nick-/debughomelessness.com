@@ -16,8 +16,13 @@ and the next expected dataset. January 2026 counts are the expected next annual
 dataset; HUD has not announced a publication date on its AHAR release pages.
 That expectation is not a scheduled site update. Imports are reviewed manually.
 
-Missing population, SPM metrics, and Functional Zero assessments
+Missing population, SPM metrics, and current Functional Zero assessments
 remain unavailable. PIT counts alone do not establish Functional Zero status.
+The Functional Zero page separately lists Community Solutions' documented
+historical milestones for 14 communities and the veteran/chronic populations
+covered. It includes a source link and review date. These achievements are not
+current CoC assessments; community boundaries may differ from HUD CoC boundaries.
+Built for Zero no longer uses Functional Zero as an active designation.
 Dashboard totals include only CoCs reporting in the latest common PIT year;
 historical references remain accessible through the API and detail pages.
 
@@ -104,4 +109,7 @@ See [setup](docs/SETUP.md), [development](docs/DEVELOPMENT.md),
 - `scripts/`: source validation, runtime checks, and smoke tests.
 - `docs/`: setup, API, and release instructions.
 
-Public data is supplied by HUD. This project is licensed under the MIT License.
+PIT data is supplied by HUD; historical Functional Zero milestones are sourced
+from [Community Solutions](https://community.solutions/built-for-zero/functional-zero/).
+The milestone snapshot is reviewed manually in `worker/src/functional-zero-achievements.js`.
+This project is licensed under the MIT License.

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import './Dashboard.css'
-import { getCocs, getMetrics, getFunctionalZeroStatus } from '../services/api'
+import { getCocs, getMetrics, getFunctionalZeroStatus, getFunctionalZeroAchievements } from '../services/api'
 import CoCMap from '../components/CoCMap'
 
 const Dashboard = () => {
@@ -11,7 +11,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [latestYear, setLatestYear] = useState(null)
-  const [assessmentCount, setAssessmentCount] = useState(0)
+  const [achievements, setAchievements] = useState(null)
 
   useEffect(() => {
     if (!loading && hash === '#coc-map') document.getElementById('coc-map')?.scrollIntoView()
@@ -19,6 +19,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     let active = true
+    getFunctionalZeroAchievements().then(data => { if (active) setAchievements(data) }).catch(() => {})
     Promise.all([getCocs(), getMetrics(), getFunctionalZeroStatus()])
       .then(([cocs, metrics, statuses]) => {
         if (!active) return
@@ -28,7 +29,6 @@ const Dashboard = () => {
         const currentCounts = new Map(pits.filter(m => m.year === year).map(m => [m.coc_id, m]))
         const currentMetrics = new Map(metrics.filter(m => m.year === year).map(m => [`${m.coc_id}:${m.metric_type}`, m.value]))
         const currentCocs = cocs.filter(coc => currentCounts.has(coc.coc_id))
-        setAssessmentCount(statuses.filter(s => currentCounts.has(s.coc_id)).length)
         setCocData(currentCocs.map(coc => {
           const pit = currentCounts.get(coc.coc_id)
           const status = statuses.find(s => s.coc_id === coc.coc_id)
@@ -59,9 +59,10 @@ const Dashboard = () => {
           <p className="stat-value">{cocData.length}</p>
         </div>
         <div className="stat-card">
-          <h3>Functional Zero</h3>
-          <p className="stat-value">{assessmentCount ? cocData.filter(c => c.functionalZero).length : 'Not available'}</p>
-          <p>{assessmentCount} CoCs with status assessments</p>
+          <h3>Historical Functional Zero</h3>
+          <p className="stat-value">{achievements ? achievements.communities.length : 'Not available'}</p>
+          <p>Communities with documented historical achievements for a specific population</p>
+          <Link to="/functional-zero">View achievements and source</Link>
         </div>
         <div className="stat-card">
           <h3>January {latestYear} PIT count</h3>
@@ -93,7 +94,7 @@ const Dashboard = () => {
               <h3>{coc.name}</h3>
               <p>{latestYear} PIT count: {coc.homeless?.toLocaleString() ?? 'Not available'}</p>
               <span className={`status ${!coc.status ? 'unavailable' : coc.functionalZero ? 'functional-zero' : 'not-achieved'}`}>
-                {coc.status ? coc.status.replaceAll('_', ' ') : 'Status not available'}
+                {coc.status ? coc.status.replaceAll('_', ' ') : 'Current status not assessed'}
               </span>
             </Link>
           ))}

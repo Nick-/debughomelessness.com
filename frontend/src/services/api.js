@@ -44,6 +44,8 @@ export const getMetricsByType = async (metricType) => {
 }
 
 // Functional Zero API calls
+export const getFunctionalZeroAchievements = async () => (await api.get('/api/functional-zero/achievements')).data
+
 export const getFunctionalZeroStatus = async () => {
   const response = await api.get('/api/functional-zero/')
   return response.data

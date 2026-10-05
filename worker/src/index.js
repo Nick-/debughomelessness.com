@@ -1,3 +1,5 @@
+import functionalZeroAchievements from './functional-zero-achievements.js';
+
 const json = (body, status = 200) => Response.json(body, {
   status,
   headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
@@ -23,6 +25,7 @@ async function api(request, env, path, url) {
   if (!['GET', 'HEAD'].includes(request.method)) {
     return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } });
   }
+  if (path === '/api/functional-zero/achievements') return json(functionalZeroAchievements);
   if (!env.DB) throw new HttpError(503, 'Database is not configured');
   const all = async (sql, ...args) => (await env.DB.prepare(sql).bind(...args).all()).results;
   const one = async (sql, ...args) => env.DB.prepare(sql).bind(...args).first();

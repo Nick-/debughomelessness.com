@@ -72,6 +72,30 @@ test('missing assessments stay missing; database failures never look healthy', a
   assert.equal((await worker.fetch(new Request('https://example.test/health'), {})).status, 503);
 });
 
+test('sourced historical milestones remain available without inventing current CoC assessments', async t => {
+  const f = fixture(); t.after(() => f.db.close());
+  f.db.exec('DELETE FROM functional_zero_status');
+  const response = await f.request('/api/functional-zero/achievements/');
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.designation, 'historical');
+  assert.equal(data.source_url, 'https://community.solutions/built-for-zero/functional-zero/');
+  assert.equal(data.reviewed_on, '2026-10-04');
+  assert.equal(data.communities.length, 14);
+  assert.equal(new Set(data.communities.map(c => `${c.state}:${c.name}`)).size, 14);
+  assert.equal(data.communities.filter(c => c.populations.includes('veteran')).length, 12);
+  assert.equal(data.communities.filter(c => c.populations.includes('chronic')).length, 5);
+  assert.equal(data.communities.filter(c => c.populations.length === 2).length, 3);
+  assert.ok(data.communities.every(c => !('coc_id' in c) && !('current_population' in c) && !('achieved_date' in c)));
+  assert.deepEqual(await (await f.request('/api/functional-zero')).json(), []);
+  assert.equal((await f.request('/api/functional-zero/TEST-001')).status, 404);
+  assert.equal((await f.request('/api/functional-zero/achievements', 'POST')).status, 405);
+  assert.equal(await (await f.request('/api/functional-zero/achievements', 'HEAD')).text(), '');
+  const withoutDb = await worker.fetch(new Request('https://example.test/api/functional-zero/achievements'), {});
+  assert.equal(withoutDb.status, 200);
+  assert.deepEqual(await withoutDb.json(), data);
+});
+
 test('client routes go to assets while unknown API routes remain JSON 404s', async t => {
   const f = fixture(); t.after(() => f.db.close());
   for (const path of ['/', '/functional-zero', '/coc/TEST-001']) {

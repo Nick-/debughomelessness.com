@@ -58,7 +58,7 @@ const CoCDetail = () => {
           <p>{cocData.current_homeless?.toLocaleString() ?? 'Not available'}</p>
         </div>
         <div className="info-card">
-          <h3>Functional Zero Benchmark</h3>
+          <h3>Stored Assessment Benchmark</h3>
           <p>{cocData.benchmark ?? 'Not available'}</p>
         </div>
       </div>
@@ -79,9 +79,11 @@ const CoCDetail = () => {
 
       <div className="coc-status">
         <h2>Functional Zero Status</h2>
-        <p className={`status ${cocData.status === 'functional_zero' ? 'achieved' : 'not-achieved'}`}>
+        <p className={`status ${!cocData.status ? 'unavailable' : cocData.status === 'functional_zero' ? 'achieved' : 'not-achieved'}`}>
           {cocData.status ? cocData.status.replaceAll('_', ' ') : 'Status not available'}
         </p>
+        {!cocData.status && <p>No current assessment has been imported for this CoC. Annual PIT counts cannot establish this status.</p>}
+        <p><Link to="/functional-zero">View documented historical achievements by community and population</Link></p>
       </div>
     </div>
   )

@@ -121,6 +121,23 @@ Returns metrics filtered by type.
 
 ### Functional Zero
 
+#### Get Documented Historical Achievements
+
+```
+GET /api/functional-zero/achievements
+```
+
+Returns a manually reviewed Community Solutions source snapshot with
+`source_name`, `source_url`, `reviewed_on`, `designation: "historical"`, `note`,
+and `communities`. Each community has `name`, `state`, and `populations`
+(`veteran` and/or `chronic`). The current snapshot documents 14 communities,
+12 veteran milestones, and 5 chronic milestones; three communities overlap.
+This is available independently of D1. It does not assign current CoC status,
+infer CoC boundaries, or supply unreported achievement dates or headcounts.
+The review date is the date the source list was checked, not the milestone date.
+An unlisted community is unassessed here, not "not achieved". Built for Zero
+no longer uses Functional Zero as an active designation.
+
 #### Get All Functional Zero Status
 ```
 GET /api/functional-zero/

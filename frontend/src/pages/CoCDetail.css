@@ -92,3 +92,7 @@
   background-color: #e74c3c;
   color: white;
 }
+.coc-status .status.unavailable {
+  color: #526170;
+  background: #edf0f2;
+}

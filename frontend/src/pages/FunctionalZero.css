@@ -2,6 +2,47 @@
   animation: fadeIn 0.3s ease-in;
 }
 
+.achievement-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.achievement-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.achievement-filters label {
+  display: grid;
+  gap: 0.5rem;
+  flex: 1 1 220px;
+}
+
+.achievement-filters input,
+.achievement-filters select {
+  padding: 0.75rem;
+  border: 1px solid #8b99a5;
+  border-radius: 4px;
+  font: inherit;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.achievement-table-wrapper { overflow-x: auto; }
+.achievement-table { width: 100%; border-collapse: collapse; }
+.achievement-table caption { text-align: left; padding-bottom: 1rem; color: #526170; }
+.achievement-table th, .achievement-table td {
+  text-align: left;
+  padding: 0.8rem;
+  border-bottom: 1px solid #dce2e8;
+}
+.achievement-table thead { background: #f8f9fa; }
+.achievement-methodology { margin-top: 1.5rem; }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

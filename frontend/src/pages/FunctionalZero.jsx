@@ -1,117 +1,89 @@
 import React, { useState, useEffect } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import './FunctionalZero.css'
-import { getFunctionalZeroStatus } from '../services/api'
+import { getFunctionalZeroAchievements, getFunctionalZeroStatus } from '../services/api'
 
 const FunctionalZero = () => {
-  const [functionalZeroData, setFunctionalZeroData] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(null)
+  const [statuses, setStatuses] = useState(null)
   const [error, setError] = useState(null)
+  const [query, setQuery] = useState('')
+  const [population, setPopulation] = useState('all')
 
   useEffect(() => {
     let active = true
-    getFunctionalZeroStatus().then(statuses => {
-      if (!active) return
-      setFunctionalZeroData([
-        { name: 'Functional Zero', value: statuses.filter(s => s.status === 'functional_zero').length, color: '#27ae60' },
-        { name: 'Approaching', value: statuses.filter(s => s.status === 'approaching').length, color: '#f39c12' },
-        { name: 'Not Achieved', value: statuses.filter(s => s.status === 'not_achieved').length, color: '#e74c3c' },
-      ])
-    }).catch(() => { if (active) setError('Unable to load status data. Please try again later.') })
-      .finally(() => { if (active) setLoading(false) })
+    getFunctionalZeroAchievements().then(result => { if (active) setData(result) })
+      .catch(() => { if (active) setError('Unable to load achievements. Please try again later.') })
+    getFunctionalZeroStatus().then(result => { if (active) setStatuses(result) }).catch(() => { if (active) setStatuses(false) })
     return () => { active = false }
   }, [])
 
-  if (loading) {
-    return <div className="loading">Loading Functional Zero data...</div>
-  }
   if (error) return <div className="loading" role="alert">{error}</div>
+  if (!data) return <div className="loading">Loading Functional Zero achievements...</div>
 
-  const total = functionalZeroData.reduce((sum, item) => sum + item.value, 0)
-  if (!total) return <div className="functional-zero"><h1 className="page-title">Functional Zero Progress</h1><p>No status assessments have been imported yet. HUD PIT counts alone do not establish Functional Zero status.</p></div>
+  const communities = data.communities.filter(community =>
+    `${community.name} ${community.state}`.toLowerCase().includes(query.trim().toLowerCase()) &&
+    (population === 'all' || community.populations.includes(population)))
+  const counts = [
+    { label: 'Communities with achievements', value: data.communities.length },
+    { label: 'Veteran homelessness milestones', value: data.communities.filter(c => c.populations.includes('veteran')).length },
+    { label: 'Chronic homelessness milestones', value: data.communities.filter(c => c.populations.includes('chronic')).length },
+  ]
 
-  return (
-    <div className="functional-zero">
-      <h1 className="page-title">Functional Zero Progress</h1>
-      
-      <div className="functional-zero-content">
-        <div className="chart-container">
-          <h2>Overall Status Distribution</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={functionalZeroData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {functionalZeroData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        <div className="stats-container">
-          <div className="stat-item">
-            <h3>Total CoCs</h3>
-            <p className="stat-value">{total}</p>
-          </div>
-          <div className="stat-item">
-            <h3>Functional Zero</h3>
-            <p className="stat-value achieved">{functionalZeroData[0].value}</p>
-            <p className="stat-percentage">
-              {((functionalZeroData[0].value / total) * 100).toFixed(1)}%
-            </p>
-          </div>
-          <div className="stat-item">
-            <h3>Approaching</h3>
-            <p className="stat-value approaching">{functionalZeroData[1].value}</p>
-            <p className="stat-percentage">
-              {((functionalZeroData[1].value / total) * 100).toFixed(1)}%
-            </p>
-          </div>
-          <div className="stat-item">
-            <h3>Not Achieved</h3>
-            <p className="stat-value not-achieved">{functionalZeroData[2].value}</p>
-            <p className="stat-percentage">
-              {((functionalZeroData[2].value / total) * 100).toFixed(1)}%
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="benchmark-info">
-        <h2>What is Functional Zero?</h2>
-        <p>
-          This project's population-rate benchmark is fewer than 3 people experiencing
-          homelessness per 10,000 people in the general population. It is an indicative
-          project measure, not an official certification of Functional Zero.
-        </p>
-        <div className="benchmark-details">
-          <div className="benchmark-item">
-            <h3>Benchmark</h3>
-            <p>&lt; 3 people per 10,000</p>
-          </div>
-          <div className="benchmark-item">
-            <h3>Calculation</h3>
-            <p>(Homeless Population / Total Population) × 10,000</p>
-          </div>
-          <div className="benchmark-item">
-            <h3>Goal</h3>
-            <p>Sustainable, measurable end to homelessness</p>
-          </div>
-        </div>
-      </div>
+  return <div className="functional-zero">
+    <h1 className="page-title">Functional Zero Achievements</h1>
+    <div className="benchmark-info">
+      <h2>Documented historical milestones</h2>
+      <p>{data.note}</p>
+      <p><a href={data.source_url} target="_blank" rel="noreferrer">View the {data.source_name} source list</a>
+        {' '}· Source reviewed <time dateTime={data.reviewed_on}>{data.reviewed_on}</time>. This date is our source review date, not an achievement date.</p>
     </div>
-  )
+
+    <div className="achievement-stats">
+      {counts.map(item => <div className="stat-item" key={item.label}>
+        <h3>{item.label}</h3><p className="stat-value achieved">{item.value}</p>
+      </div>)}
+    </div>
+    <p>Communities may have achieved milestones for both populations, so population counts overlap.</p>
+
+    <section className="benchmark-info" aria-labelledby="achievement-list-title">
+      <h2 id="achievement-list-title">Communities and populations</h2>
+      <div className="achievement-filters">
+        <label>Search community or state
+          <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Community name or state abbreviation" />
+        </label>
+        <label>Population
+          <select value={population} onChange={event => setPopulation(event.target.value)}>
+            <option value="all">All populations</option>
+            <option value="veteran">Veteran homelessness</option>
+            <option value="chronic">Chronic homelessness</option>
+          </select>
+        </label>
+      </div>
+      <p role="status">{communities.length} of {data.communities.length} documented communities shown</p>
+      <div className="achievement-table-wrapper">
+        <table className="achievement-table">
+          <caption>Historical Functional Zero milestones in the reviewed source list</caption>
+          <thead><tr><th scope="col">Community</th><th scope="col">State</th><th scope="col">Population covered</th></tr></thead>
+          <tbody>{communities.map(community => <tr key={`${community.state}:${community.name}`}>
+            <th scope="row">{community.name}</th><td>{community.state}</td>
+            <td>{community.populations.map(p => p === 'veteran' ? 'Veteran homelessness' : 'Chronic homelessness').join('; ')}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+      {!communities.length && <p>No communities match these filters.</p>}
+      <p>The source's community boundaries may differ from HUD CoC boundaries. Absence from this list means no milestone is documented here.</p>
+    </section>
+
+    <section className="benchmark-info achievement-methodology">
+      <h2>How to interpret these achievements</h2>
+      <p>Functional Zero described a community's ability to make homelessness rare and brief for a specific population, using regularly updated, person-level data and housing capacity.</p>
+      <p>Annual HUD PIT counts and a general-population rate cannot establish Functional Zero. A historical milestone does not establish a community's current status or an end to homelessness for everyone.</p>
+      <h3>Current assessments in this dashboard</h3>
+      <p>{statuses === null ? 'Loading current assessment data...' : statuses === false ? 'Current assessment data could not be loaded.' : statuses.length
+        ? `${statuses.length} CoCs have stored project assessments. These are separate from the source's historical milestones.`
+        : 'No current CoC assessments have been imported. The list above provides sourced historical achievements.'}</p>
+    </section>
+  </div>
 }
 
 export default FunctionalZero
