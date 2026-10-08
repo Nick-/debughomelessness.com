@@ -53,6 +53,19 @@ Deployed and verified on October 5, 2026 (America/New_York).
   and the excluded browser has no Google tag script. Use
   `https://debughomelessness.com/?analytics=off` once per browser/profile/device.
 
+## Visitor behavior analytics release
+
+Deployed and verified on October 7, 2026 (America/New_York).
+
+- Application commit: `33564d8`; report-link documentation: `49a55c2`.
+- Worker version: `097de86f-9839-42bb-a3f4-81e3f5953bae`.
+- Tracks CoC searches/selections, shelter exploration, source links, and
+  Discord/donation click intent. See [ANALYTICS.md](ANALYTICS.md).
+- Registered 16 event dimensions and four key events in the owner's GA4 property.
+- All 23 tests, the production build, Workers dry run, isolated local runtime
+  checks, and all 13 production smoke checks passed.
+- No pending remote database migrations.
+
 ## Local setup
 
 Use Node.js 24 (22.12+ also supports the build).
@@ -93,7 +106,7 @@ record deliberately rather than deleting unrelated records.
    its own local Worker on port 18788, with inspector port 19230 and a temporary
    D1 database; it does not modify your development database.
 3. Run `npm run db:migrate:local` and `npm run dev` for a browser review.
-4. Confirm `npm run cf:whoami` shows the configured account.
+4. Ensure the deployment API token is configured as described below.
 5. Run `npm run deploy`. It validates, builds, applies pending remote migrations,
    then deploys the Worker and static assets together and runs production smoke tests.
 6. Inspect the dashboard in a browser. `npm run smoke` can also be run independently.
@@ -124,13 +137,29 @@ and checking the live domain. Releases are explicitly invoked; pushing a branch
 does not deploy. `npm run check` remains available for tests, a build, and a dry run,
 while `npm run test:runtime` runs only the local runtime check after a build.
 
-Interactive releases use `npm run cf:login`. For a noninteractive runner, set
-these environment variables in that runner's secret store:
+`npm run deploy` requires a deployment API token and disables interactive login.
+It accepts `CLOUDFLARE_API_TOKEN` (or Wrangler's legacy `CF_API_TOKEN`) from the
+environment first. On Windows, it otherwise unlocks the saved credential at
+`%LOCALAPPDATA%\DebugHomelessness\deploy-token.dpapi`. Windows DPAPI encrypts this
+file for the current Windows user; the containing directory permits only that
+user. The token stays outside the repository and is passed only to release
+subprocesses. A new computer/user needs separate credential provisioning.
+
+The dedicated token configuration is:
+
+- Account `9266560766d3741dd4f51cc302ba9caa`: Workers Scripts Edit, D1 Edit,
+  Account Settings Read.
+- Zone `debughomelessness.com` only: Workers Routes Edit, Zone Read.
+- No expiration date; revoke/rotate it in Cloudflare if needed. Revoked or
+  missing credentials stop deployment with an error instead of opening a browser.
+
+To store a replacement token, securely pipe it to
+`powershell.exe -NoProfile -NonInteractive -File scripts/deploy-token.ps1 -Action store`.
+Do not put the token in command arguments, source files, logs, or chat.
+For another runner, set these environment variables in its secret store:
 
 - `CLOUDFLARE_API_TOKEN`: a dedicated token scoped to this account and
-  zone, with Workers Scripts Edit, D1 Edit, Workers Routes Edit, Zone Read, and
-  the permissions required for Worker Custom Domains (including SSL/certificates
-  if needed by the account's token policy).
+  zone, with the permissions listed above.
 - `CLOUDFLARE_ACCOUNT_ID`: `9266560766d3741dd4f51cc302ba9caa`.
 
 Do not commit credentials or copy the local OAuth token into a runner. No
