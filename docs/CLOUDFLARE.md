@@ -66,6 +66,22 @@ Deployed and verified on October 7, 2026 (America/New_York).
   checks, and all 13 production smoke checks passed.
 - No pending remote database migrations.
 
+## Verified unattended deployment
+
+Verified on October 7, 2026 (America/New_York).
+
+- Release runner commit: `9454ae4`.
+- Worker version: `46afaa76-79d4-4c63-a1a0-2585c391f358`.
+- Created `debughomelessness local deploy` with the account/zone permissions
+  documented below and no expiration date. Its status is Active.
+- Saved only a Windows DPAPI-encrypted credential outside the repository, with
+  access restricted to the current Windows user.
+- `npm run deploy` unlocked that credential and completed validation, remote
+  migration checks, Worker deployment, and all 13 production smoke checks
+  without browser authentication. All 23 tests passed.
+- Credential encryption/decryption, environment-token precedence, release step
+  order, and stopping before deployment after a migration failure were checked.
+
 ## Local setup
 
 Use Node.js 24 (22.12+ also supports the build).
@@ -128,7 +144,7 @@ Run the same commands from a local checkout or a runner you control:
 ```sh
 npm ci
 npm run validate
-# After reviewing the changes and authenticating to Cloudflare:
+# After reviewing the changes and configuring the deployment credential:
 npm run deploy
 ```
 
