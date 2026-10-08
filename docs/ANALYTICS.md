@@ -2,7 +2,9 @@
 
 ## What to look at
 
-Use the **Reports snapshot** for an overview of behavior. The generic GA Home
+Use the [configured Reports snapshot](https://analytics.google.com/analytics/web/#/a296956267p557395391/reports/dashboard?r=16064577018)
+for an overview of behavior. Bookmark this direct link if Google's Reports
+navigation still shows its setup screen. The generic GA Home
 screen's event total mixes page views, session starts, and engagement events;
 it does not tell you how many people actually explored the data.
 Use the last **7 or 28 days**, compared with the previous period. Today's partial
@@ -106,8 +108,9 @@ counting for each. Keep action events such as search and filter changes as
 diagnostics. No monetary value is assigned to outbound clicks. Do not create a
 second GA event that duplicates the event the application already sends.
 
-Start the Reports snapshot with **User behavior** and include cards for page
-paths, events, traffic acquisition, engagement, device category, and key events.
+The configured Reports snapshot includes cards for page paths, events, traffic
+acquisition, engagement, device category, and key events. It was saved through
+the report editor because Google's User behavior template setup returned an error.
 Prefer page paths: the app currently shares a document title across routes.
 For detailed exploration, use Total users alongside Event count so repeated
 clicks by one visitor do not look like more people.
