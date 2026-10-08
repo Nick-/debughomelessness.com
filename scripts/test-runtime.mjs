@@ -87,6 +87,16 @@ try {
   await Promise.race([start([join(root, 'scripts/smoke.mjs'), base]).done, server.done.then(() => {
     throw new Error('Local Worker exited during smoke tests');
   })]);
+  const traffic = await fetch(`${base}/api/traffic`, { method: 'POST',
+    headers: { Origin: base, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: '550e8400-e29b-41d4-a716-446655440000', event: 'page_view',
+      landing_page: '/', referrer_host: 'github.com', utm_source: '', utm_medium: '', automation: true }),
+    signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]),
+  });
+  if (traffic.status !== 204) throw new Error(`Traffic collector returned ${traffic.status}`);
+  const privateRead = await fetch(`${base}/api/traffic`, { signal: controller.signal });
+  if (privateRead.status !== 405) throw new Error('Traffic collection endpoint allowed public reads');
+  await start([join(root, 'scripts/traffic-report.mjs'), '--local', '--persist-to', state, '--days', '1']).done;
   console.log('Workers runtime validation passed.');
 } finally {
   controller.abort();

@@ -1,4 +1,5 @@
 import functionalZeroAchievements from './functional-zero-achievements.js';
+import { collectTraffic, pruneTraffic } from './traffic.js';
 
 const json = (body, status = 200) => Response.json(body, {
   status,
@@ -99,6 +100,7 @@ async function api(request, env, path, url) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/api/traffic') return collectTraffic(request, env);
     let path;
     try { path = decodeURIComponent(url.pathname).replace(/\/+$/, '') || '/'; }
     catch { return json({ detail: 'Malformed URL' }, 400); }
@@ -110,5 +112,8 @@ export default {
       response = json({ detail: error instanceof HttpError ? error.message : 'Database request failed' }, error.status || 503);
     }
     return request.method === 'HEAD' ? new Response(null, { status: response.status, headers: response.headers }) : response;
+  },
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(pruneTraffic(env));
   },
 };

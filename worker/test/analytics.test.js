@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ANALYTICS_EXCLUSION_KEY, analyticsLinkEvent, analyticsPageContext, createAnalytics } from '../../frontend/src/services/analytics.js';
 
-function setup({ url = 'https://debughomelessness.com/', production = true,
+function setup({ url = 'https://debughomelessness.com/', production = true, diagnostics = false,
   measurementId = 'G-TEST12345', storage = new Map(), blockedStorage = false } = {}) {
   const scripts = [];
   const listeners = new Map();
@@ -28,9 +28,19 @@ function setup({ url = 'https://debughomelessness.com/', production = true,
     createElement: () => ({}),
     head: { appendChild: script => scripts.push(script) },
   };
+  const requests = [];
+  if (diagnostics) {
+    Object.assign(browser, {
+      sessionStorage: { getItem: () => null, setItem: () => {} },
+      crypto: { randomUUID: () => '550e8400-e29b-41d4-a716-446655440000' },
+      fetch: async (url, options) => { requests.push(JSON.parse(options.body)); },
+      setTimeout: () => 1, clearTimeout: () => {},
+    });
+    document.visibilityState = 'hidden';
+  }
   const analytics = createAnalytics({ browser, document, measurementId, production });
   analytics.initialize();
-  return { analytics, browser, scripts, storage, listeners, documentListeners };
+  return { analytics, browser, scripts, storage, listeners, documentListeners, requests };
 }
 
 test('GA loads once for a production visitor and leaves page views to enhanced measurement', () => {
@@ -46,6 +56,28 @@ test('GA loads once for a production visitor and leaves page views to enhanced m
   assert.deepEqual(commands[1], ['config', 'G-TEST12345', {
     allow_google_signals: false, allow_ad_personalization_signals: false,
   }]);
+});
+
+test('first-party diagnostics obey the same exclusion and production gates and ignore automatic loads', () => {
+  for (const options of [{ url: 'https://debughomelessness.com/?analytics=off' },
+    { url: 'http://localhost:3000/' }, { production: false }, { blockedStorage: true }]) {
+    const f = setup({ ...options, diagnostics: true });
+    f.analytics.track('discord_click');
+    assert.equal(f.requests.length, 0);
+  }
+  const f = setup({ diagnostics: true });
+  f.analytics.track('coc_detail_view', { coc_id: 'FL-601' });
+  f.analytics.track('data_load_error', { data_section: 'dashboard' });
+  assert.deepEqual(f.requests.map(r => r.event), ['page_view']);
+  f.analytics.track('discord_click');
+  assert.equal(f.requests.at(-1).event, 'interaction');
+  f.storage.set(ANALYTICS_EXCLUSION_KEY, 'true');
+  f.analytics.track('discord_click'); f.analytics.pageView();
+  assert.equal(f.requests.length, 2);
+  const independent = setup({ diagnostics: true, measurementId: '' });
+  independent.analytics.track('discord_click');
+  assert.deepEqual(independent.requests.map(r => r.event), ['page_view', 'interaction']);
+  assert.equal(independent.scripts.length, 0);
 });
 
 test('the first exclusion visit sends nothing and persists across reloads before GA can load', () => {

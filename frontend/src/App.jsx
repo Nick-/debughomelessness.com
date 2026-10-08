@@ -1,5 +1,6 @@
-import React from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import React, { useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { analytics } from './services/analytics'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import DataFreshness from './components/DataFreshness'
@@ -9,9 +10,16 @@ import CoCDetail from './pages/CoCDetail'
 import FunctionalZero from './pages/FunctionalZero'
 import './App.css'
 
+function TrafficPageView() {
+  const { pathname } = useLocation()
+  useEffect(() => { analytics.pageView() }, [pathname])
+  return null
+}
+
 function App() {
   return (
     <Router>
+      <TrafficPageView />
       <div className="App">
         <Navbar />
         <main className="main-content">

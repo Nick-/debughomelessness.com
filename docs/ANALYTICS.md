@@ -1,5 +1,72 @@
 # Google Analytics: visitor behavior and owner traffic
 
+## Private traffic diagnostics
+
+The first-party `/api/traffic` collector supplements GA4 with **future** arrival
+and network information. It uses the existing D1 database, so reports don't need
+Cloudflare's paid referrer/ASN analytics fields or additional logging permissions.
+It records:
+
+- Original landing page (only known public routes), referring **hostname**,
+  and allowlisted UTM source/medium categories.
+- Country, ASN and network owner supplied by Cloudflare on the incoming request.
+- Browser family and major version, not the raw user-agent string.
+- Separate evidence labels: `verified_bot` (if Cloudflare supplies it),
+  `headless_browser`, `scanner_agent`, `automation_reported`, or `no_signal`.
+- Page-view count, whether the tab spent at least 10 seconds visible, and whether
+  it triggered an existing deliberate action event. Automatic detail loads and
+  data errors are not interactions.
+
+No IP address, full URL, URL query, search text, or permanent visitor ID is stored
+in D1. A random ID in session storage groups one browsing session and rotates
+after 30 minutes of inactivity; closing the tab removes it. Duplicated tabs may
+inherit session storage. The daily cleanup removes records last active more than
+30 days ago (within the following daily cleanup run). IPs are used transiently
+by Cloudflare's rate limiter, not written to the analytics table. The collector
+ignores cookies. Existing Cloudflare infrastructure logging is separate.
+
+The browser exclusion applies to both collectors. Local/preview frontend builds
+send neither GA nor first-party diagnostics; blocked browser storage skips
+collection. The endpoint validates origin, limits payload size and rate, and
+accepts only three fixed event types. It never exposes a public read endpoint.
+Database errors do not affect browsing, and failed requests are not retried.
+
+Run a report using the existing owner Cloudflare credential:
+
+```sh
+npm run analytics:report
+npm run analytics:report -- --days 1
+npm run analytics:report -- --days 7 --output data/traffic-report.md
+```
+
+Reports show automation evidence, country/network/browser combinations, arrival
+sources, landing pages, and visible/interacted visits. They use a rolling UTC
+window of 1–30 days and list the top 30 groups, with full totals separately.
+For a development database, add `--local` after applying the local migrations.
+The report performs only SELECT queries and never exports session IDs.
+
+**Interpretation:** These are browser sessions, not unique people or GA's active
+user metric. `no_signal` means unknown, not confirmed human. Headless browsers
+can be legitimate monitoring or accessibility tooling. A hosting-company ASN
+can represent a bot, VPN, proxy, or real visitor. Client automation flags,
+user-agent strings, referrers, and UTM values can be spoofed. Visible time and
+interaction do not prove human attention. Bot scores remain empty when the
+Cloudflare plan doesn't supply them. Simple scanners that don't execute the
+app's JavaScript are still found in Cloudflare request analytics, not this report.
+GA totals may differ due to blocking, exclusions, session definitions, rate
+limiting, and network failures. Past GA users cannot be reconstructed.
+
+For links you share, add tags such as
+`?utm_source=discord&utm_medium=social` or
+`?utm_source=newsletter&utm_medium=email`. Supported sources are newsletter,
+discord, linkedin, reddit, github, facebook, x, bluesky, google, bing, chatgpt,
+perplexity, and email. Supported mediums are email, social, referral, organic,
+cpc, qr, and link. Other nonempty values become `other_tagged`; campaign names
+are not retained. GA4's existing attribution still works independently.
+
+Implementation sources: [Cloudflare request metadata](https://developers.cloudflare.com/workers/runtime-apis/request/)
+and [Bot Management fields](https://developers.cloudflare.com/bots/reference/bot-management-variables/).
+
 ## What to look at
 
 Use the [configured Reports snapshot](https://analytics.google.com/analytics/web/#/a296956267p557395391/reports/dashboard?r=16064577018)

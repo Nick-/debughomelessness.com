@@ -20,7 +20,8 @@
     "deploy": "node scripts/deploy.mjs",
     "deploy:worker": "wrangler deploy",
     "smoke": "node scripts/smoke.mjs",
-    "logs": "wrangler tail"
+    "logs": "wrangler tail",
+    "analytics:report": "node scripts/traffic-report.mjs"
   },
   "devDependencies": { "wrangler": "^4.0.0" }
 }

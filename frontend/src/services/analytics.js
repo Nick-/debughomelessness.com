@@ -1,3 +1,5 @@
+import { createTrafficDiagnostics } from './traffic-diagnostics.js'
+
 export const ANALYTICS_EXCLUSION_KEY = 'debughomelessness:analytics-excluded'
 
 // Custom parameters contain only public identifiers and fixed categories;
@@ -63,10 +65,15 @@ export function createAnalytics({ browser, document, measurementId = '', product
   let excluded = false
   let storageAvailable = true
   let enabled = false
+  let collectionAllowed = false
+  const diagnostics = createTrafficDiagnostics({ browser, document,
+    isAllowed: () => collectionAllowed && !excluded && !readExclusion() })
 
   function track(name, parameters = {}) {
     const schema = Object.hasOwn(eventParameters, name) ? eventParameters[name] : null
-    if (!enabled || !schema || excluded || browser[`ga-disable-${id}`] || readExclusion()) return false
+    if (!schema || excluded || readExclusion()) return false
+    if (!['coc_detail_view', 'data_load_error'].includes(name)) diagnostics.interaction()
+    if (!enabled || browser[`ga-disable-${id}`]) return false
     const safe = { ...analyticsPageContext(browser.location.href), send_to: id, transport_type: 'beacon' }
     for (const [key, valid] of Object.entries({ ...schema, link_placement: category('navigation', 'mission', 'footer', 'content') })) {
       if (valid(parameters[key])) safe[key] = parameters[key]
@@ -111,9 +118,9 @@ export function createAnalytics({ browser, document, measurementId = '', product
       browser.history.replaceState(browser.history.state, '', `${url.pathname}${url.search}${url.hash}`)
     }
 
-    if (!/^G-[A-Z0-9]+$/.test(id)) return
     const allowedHost = ['debughomelessness.com', 'www.debughomelessness.com'].includes(url.hostname)
     const allowed = production && allowedHost && url.protocol === 'https:'
+    collectionAllowed = allowed
     browser[`ga-disable-${id}`] = !allowed || excluded
     if (!allowed) return
 
@@ -125,17 +132,7 @@ export function createAnalytics({ browser, document, measurementId = '', product
       }
     })
     if (excluded) return
-
-    browser.dataLayer = browser.dataLayer || []
-    browser.gtag = function () { browser.dataLayer.push(arguments) }
-    browser.gtag('js', new Date())
-    // Enhanced measurement handles React Router's History API transitions.
-    // Keep a single config call so the initial page view is not duplicated.
-    browser.gtag('config', id, {
-      allow_google_signals: false,
-      allow_ad_personalization_signals: false,
-    })
-    enabled = true
+    diagnostics.initialize()
 
     function trackLink(event) {
       if (event.type === 'auxclick' && event.button !== 1) return
@@ -151,6 +148,18 @@ export function createAnalytics({ browser, document, measurementId = '', product
     document.addEventListener('click', trackLink, true)
     document.addEventListener('auxclick', trackLink, true)
 
+    if (!/^G-[A-Z0-9]+$/.test(id)) return
+    browser.dataLayer = browser.dataLayer || []
+    browser.gtag = function () { browser.dataLayer.push(arguments) }
+    browser.gtag('js', new Date())
+    // Enhanced measurement handles React Router's History API transitions.
+    // Keep a single config call so the initial page view is not duplicated.
+    browser.gtag('config', id, {
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false,
+    })
+    enabled = true
+
     const script = document.createElement('script')
     script.async = true
     script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(id)}`
@@ -160,6 +169,7 @@ export function createAnalytics({ browser, document, measurementId = '', product
   return {
     initialize,
     track,
+    pageView: diagnostics.pageView,
     get excluded() { return excluded },
     get storageAvailable() { return storageAvailable },
   }

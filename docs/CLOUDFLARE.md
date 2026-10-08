@@ -1,10 +1,13 @@
 # Cloudflare Workers deployment
 
-The React dashboard, static assets, and read-only API deploy together as the
+The React dashboard, static assets, dataset API, and traffic collector deploy together as the
 `debughomelessness` Worker. D1 supplies the database through the `DB` binding.
 `wrangler.json` is the source of truth for the domain, account, database, and routing.
 The production hostname is https://debughomelessness.com. Client-side routes fall
 back to the React app; `/api/*` and `/health` always run the Worker.
+`/api/traffic` is a validated, rate-limited POST collector for private diagnostics;
+the dataset APIs remain read-only. A daily UTC cron prunes diagnostic sessions
+last active more than 30 days ago. See [ANALYTICS.md](ANALYTICS.md) for private reports.
 
 ## Initial production release
 
@@ -65,6 +68,26 @@ Deployed and verified on October 7, 2026 (America/New_York).
 - All 23 tests, the production build, Workers dry run, isolated local runtime
   checks, and all 13 production smoke checks passed.
 - No pending remote database migrations.
+
+## Private traffic diagnostics release
+
+Deployed and verified on October 7, 2026 (America/New_York).
+
+- Worker version: `b8e300e3-8c9c-4251-b8c6-206c30fff789`.
+- Applied additive migration `0003_traffic_sessions.sql`; the public dataset tables
+  are unchanged. Private reports use the existing owner's D1 credential.
+- Records browser sessions, arrival categories, country/ASN/network owner,
+  browser version, automation evidence, visible time, and deliberate interactions.
+- All 32 tests, production build, dry run, isolated runtime collector/report
+  checks, 13 production smoke checks, and live browser verification passed.
+- Removed both synthetic verification sessions from the private diagnostics.
+- Registered the previously absent account Workers namespace `debughomelessness`
+  to satisfy Cloudflare's cron prerequisite. The site's workers.dev route and
+  preview URLs remain disabled; the verified daily cleanup is `17 8 * * *` UTC.
+- The first release runner stopped after the cron prerequisite error, after
+  publishing the Worker. Registration and schedule synchronization completed via
+  Cloudflare's API, and live collection, private reads, and retention configuration
+  were verified separately.
 
 ## Verified unattended deployment
 
