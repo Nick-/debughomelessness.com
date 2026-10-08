@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Marker, Popup, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { shelterMetricLabel, validateShelterData } from '../services/shelter-data'
+import { analytics } from '../services/analytics'
 
 export function useShelterData() {
   const [data, setData] = useState(null)
@@ -16,7 +17,10 @@ export function useShelterData() {
         return response.json()
       })
       .then(value => setData(validateShelterData(value)))
-      .catch(err => { if (err.name !== 'AbortError') setError(true) })
+      .catch(err => { if (err.name !== 'AbortError') {
+        setError(true)
+        analytics.track('data_load_error', { data_section: 'shelters' })
+      } })
     return () => controller.abort()
   }, [retry])
   return { data, error, retry: () => setRetry(value => value + 1) }

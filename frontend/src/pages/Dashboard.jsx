@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import './Dashboard.css'
 import { getCocs, getLatestPitMetrics, getFunctionalZeroStatus, getFunctionalZeroAchievements } from '../services/api'
 import CoCMap from '../components/CoCMap'
+import { analytics } from '../services/analytics'
 
 const Dashboard = () => {
   const { hash } = useLocation()
@@ -38,7 +39,10 @@ const Dashboard = () => {
             status: status?.status }
         }))
       })
-      .catch(() => { if (active) setError('Unable to load the dashboard. Please try again later.') })
+      .catch(() => { if (active) {
+        setError('Unable to load the dashboard. Please try again later.')
+        analytics.track('data_load_error', { data_section: 'dashboard' })
+      } })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [])

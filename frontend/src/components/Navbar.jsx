@@ -1,5 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
+import DiscordLink from './DiscordLink'
 import './Navbar.css'
 
 const Navbar = () => {
@@ -18,6 +19,9 @@ const Navbar = () => {
           </li>
           <li className="navbar-item">
             <Link to="/functional-zero" className="navbar-link">Functional Zero</Link>
+          </li>
+          <li className="navbar-item">
+            <DiscordLink className="navbar-link navbar-discord" />
           </li>
           <li className="navbar-item">
             <a

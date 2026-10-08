@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import './CoCDetail.css'
 import { getCoc, getCocMetrics, getCocFunctionalZeroStatus } from '../services/api'
 import { pitHistory, spmHighlights, spmLabels, formatMetric } from '../services/metric-display'
+import { analytics } from '../services/analytics'
 
 const CoCDetail = () => {
   const { cocId } = useParams()
@@ -32,8 +33,12 @@ const CoCDetail = () => {
           benchmark: status?.benchmark_population ?? null,
           historical_data: pitHistory(metrics.metrics), spm, spmYears,
         })
+        analytics.track('coc_detail_view', { coc_id: coc.coc_id, coc_state: coc.state?.replaceAll(' ', '') })
       })
-      .catch(err => { if (active) setError(err.response?.status === 404 ? 'Continuum of Care not found.' : 'Unable to load CoC details. Please try again later.') })
+      .catch(err => { if (active) {
+        setError(err.response?.status === 404 ? 'Continuum of Care not found.' : 'Unable to load CoC details. Please try again later.')
+        analytics.track('data_load_error', { data_section: 'coc_detail' })
+      } })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [cocId])
@@ -91,7 +96,10 @@ const CoCDetail = () => {
         <p>Federal fiscal year: October 1 of the previous year through September 30. These measures cover participating HMIS projects and depend on local data quality and coverage.</p>
         {cocData.spmYears.length ? <>
           <label htmlFor="spm-year">Fiscal year </label>
-          <select id="spm-year" value={spmYear} onChange={event => setSpmYear(event.target.value)}>
+          <select id="spm-year" value={spmYear} onChange={event => {
+            setSpmYear(event.target.value)
+            analytics.track('spm_year_change', { coc_id: cocId, data_year: Number(event.target.value) })
+          }}>
             {cocData.spmYears.map(year => <option key={year} value={year}>FY{year}</option>)}
           </select>
           <div className="spm-table-wrap"><table>
@@ -100,7 +108,9 @@ const CoCDetail = () => {
               <th scope="row">{label}</th><td>{formatMetric(cocData.spm.find(m => m.year === Number(spmYear) && m.metric_type === key))}</td>
             </tr>)}</tbody>
           </table></div>
-          <details><summary>All imported measures for FY{spmYear}</summary>
+          <details onToggle={event => {
+            if (event.currentTarget.open) analytics.track('spm_expand', { coc_id: cocId })
+          }}><summary>All imported measures for FY{spmYear}</summary>
             <div className="spm-table-wrap"><table><thead><tr><th scope="col">Measure</th><th scope="col">Value</th></tr></thead>
               <tbody>{Object.entries(spmLabels).map(([key, label]) => <tr key={key}>
                 <th scope="row">{label}</th><td>{formatMetric(cocData.spm.find(m => m.year === Number(spmYear) && m.metric_type === key))}</td>

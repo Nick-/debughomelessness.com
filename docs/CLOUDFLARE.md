@@ -38,6 +38,21 @@ Released on October 4, 2026 (America/New_York).
 - Import tests, API tests, frontend build, Workers dry run, local runtime smoke
   checks, production smoke checks, and production data reconciliation passed.
 
+## Google Analytics release
+
+Deployed and verified on October 5, 2026 (America/New_York).
+
+- Commit: `72ec788` (`Analytics`).
+- Worker version: `45a764cc-c04e-44e2-b384-5beb45d475aa`.
+- GA4 production stream: `G-01Q4FQHS0X`.
+- No pending remote database migrations.
+- All 19 tests, production build, Workers dry run, local runtime smoke checks,
+  and production smoke checks passed. The live JavaScript bundle contains the
+  configured stream ID and browser exclusion.
+- Browser verification confirmed the exclusion message persists after reload
+  and the excluded browser has no Google tag script. Use
+  `https://debughomelessness.com/?analytics=off` once per browser/profile/device.
+
 ## Local setup
 
 Use Node.js 24 (22.12+ also supports the build).

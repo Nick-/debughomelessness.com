@@ -1,11 +1,13 @@
 import React from 'react'
 import { analytics } from '../services/analytics.js'
+import DiscordLink from './DiscordLink'
 import './Footer.css'
 
 const Footer = () => (
   <footer className="site-footer">
     <div className="site-footer-container">
       <span>Homelessness KPI Tracker</span>
+      <DiscordLink />
       {!analytics.storageAvailable ? (
         <span role="status">Analytics disabled: browser storage unavailable.</span>
       ) : analytics.excluded ? (

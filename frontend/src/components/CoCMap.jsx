@@ -6,6 +6,8 @@ import 'leaflet/dist/leaflet.css'
 import './CoCMap.css'
 import { ShelterDetails, ShelterMarkers, ShelterViewport, useShelterData } from './ShelterExplorer'
 import { sheltersForCoC } from '../services/shelter-data'
+import { analytics } from '../services/analytics'
+import { useSearchAnalytics } from '../services/use-search-analytics'
 
 const views = {
   'Contiguous U.S.': [[24, -125], [50, -66]],
@@ -61,14 +63,21 @@ export default function CoCMap({ cocs, year }) {
   const shelters = useMemo(() => sheltersForCoC(shelterInventory.data, selected?.coc_id), [shelterInventory.data, selected?.coc_id])
   const selectedShelter = shelters.find(shelter => shelter.id === selectedShelterId)
 
-  function selectCoC(id) {
+  function selectCoC(id, method = 'map') {
     setSelectedId(id)
     setSelectedShelterId(null)
+    if (id) analytics.track('coc_select', { coc_id: id,
+      coc_state: byId.get(id)?.state.replaceAll(' ', ''), selection_method: method })
   }
-  function selectShelter(id) {
+  function selectShelter(id, method = 'map') {
     setShowShelters(true)
     setSelectedShelterId(id)
     setShelterFocus(value => value + 1)
+    analytics.track('shelter_select', { coc_id: selected?.coc_id, shelter_id: id, selection_method: method })
+  }
+  function toggleShelters(enabled) {
+    setShowShelters(enabled)
+    analytics.track('shelter_toggle', { enabled })
   }
 
   useEffect(() => {
@@ -83,7 +92,10 @@ export default function CoCMap({ cocs, year }) {
         if (data.type !== 'FeatureCollection' || !Array.isArray(data.features)) throw new Error('Invalid boundaries')
         setBoundaries(data)
       })
-      .catch(err => { if (err.name !== 'AbortError') setError(true) })
+      .catch(err => { if (err.name !== 'AbortError') {
+        setError(true)
+        analytics.track('data_load_error', { data_section: 'boundaries' })
+      } })
     return () => controller.abort()
   }, [retry])
 
@@ -95,6 +107,7 @@ export default function CoCMap({ cocs, year }) {
       (!term || `${coc.coc_id} ${coc.name} ${coc.state}`.toLowerCase().includes(term)))
       .sort((a, b) => a.name.localeCompare(b.name))
   }, [cocs, query, state])
+  const reportSearch = useSearchAnalytics('coc_search', query, results.length, state || 'all')
   const visible = useMemo(() => ({ type: 'FeatureCollection',
     features: results.map(coc => features.get(coc.coc_id)).filter(Boolean) }), [results, features])
   const layerKey = visible.features.map(feature => feature.properties.coc_id).join(',')
@@ -154,14 +167,20 @@ export default function CoCMap({ cocs, year }) {
         <div className="coc-map-main">
           <div className="coc-map-toolbar">
             <label>Map view
-              <select value={region} onChange={event => { setRegion(event.target.value); selectCoC(null) }}>
+              <select value={region} onChange={event => {
+                setRegion(event.target.value); selectCoC(null)
+                analytics.track('map_region_change', { map_region: event.target.value })
+              }}>
                 {Object.keys(views).map(view => <option key={view}>{view}</option>)}
               </select>
             </label>
             <label className="coc-map-shelter-toggle"><input type="checkbox" checked={showShelters}
-              onChange={event => setShowShelters(event.target.checked)} />Show shelters</label>
+              onChange={event => toggleShelters(event.target.checked)} />Show shelters</label>
             <label>Shelter numbers
-              <select value={shelterMetric} onChange={event => setShelterMetric(event.target.value)}>
+              <select value={shelterMetric} onChange={event => {
+                setShelterMetric(event.target.value)
+                analytics.track('shelter_metric_change', { shelter_metric: event.target.value })
+              }}>
                 <option value="capacity">Bed capacity</option><option value="occupancy">Occupancy</option>
               </select>
             </label>
@@ -198,9 +217,13 @@ export default function CoCMap({ cocs, year }) {
           <div className="coc-map-filters">
             <label htmlFor="coc-map-search">Find a CoC</label>
             <input id="coc-map-search" type="search" value={query} placeholder="Name, state abbreviation, or CoC ID"
+              onBlur={reportSearch} onKeyDown={event => { if (event.key === 'Enter') reportSearch() }}
               onChange={event => { setQuery(event.target.value); selectCoC(null) }} />
             <label htmlFor="coc-map-state">State or territory</label>
-            <select id="coc-map-state" value={state} onChange={event => { setState(event.target.value); selectCoC(null) }}>
+            <select id="coc-map-state" value={state} onChange={event => {
+              setState(event.target.value); selectCoC(null)
+              analytics.track('coc_state_filter', { state_filter: event.target.value || 'all' })
+            }}>
               <option value="">All states and territories</option>
               {states.map(item => <option key={item}>{item}</option>)}
             </select>
@@ -228,7 +251,7 @@ export default function CoCMap({ cocs, year }) {
           <p className="coc-map-result-count" role="status">{results.length} CoC{results.length === 1 ? '' : 's'} found</p>
           <ul className="coc-map-results">
             {results.map(coc => <li key={coc.coc_id}><button type="button" aria-pressed={selectedId === coc.coc_id}
-              onClick={() => selectCoC(coc.coc_id)}>
+              onClick={() => selectCoC(coc.coc_id, 'list')}>
               <span>{coc.name}</span><small>{coc.coc_id} · PIT {count(coc.homeless)}</small>
             </button></li>)}
             {!results.length && <li className="coc-map-no-results">No CoCs match. Try another name or clear the filters.</li>}
@@ -240,9 +263,9 @@ export default function CoCMap({ cocs, year }) {
         !shelterInventory.data ? <p className="coc-map-source" role="status">Loading shelter data…</p> :
         <ShelterDetails selected={selected} inventory={shelterInventory.data} shelters={shelters}
           selectedId={selectedShelterId} onSelect={id => {
-            selectShelter(id)
+            selectShelter(id, 'list')
             canvasRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-          }} shown={showShelters} onShow={() => setShowShelters(true)} />}
+          }} shown={showShelters} onShow={() => toggleShelters(true)} />}
       <p className="coc-map-source">
         {boundaries && <>Boundaries: <a href={boundaries.metadata.source} target="_blank" rel="noreferrer">HUD FY{boundaries.metadata.boundary_year}</a>, simplified for display. {mappedCount} of {cocs.length} reporting CoCs mapped. </>}
         Counts are January {year} estimates, not a live census. All reporting CoCs are accessible in the list.

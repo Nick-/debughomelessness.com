@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import './FunctionalZero.css'
 import { getFunctionalZeroAchievements, getFunctionalZeroStatus } from '../services/api'
+import { analytics } from '../services/analytics'
+import { useSearchAnalytics } from '../services/use-search-analytics'
 
 const FunctionalZero = () => {
   const [data, setData] = useState(null)
@@ -12,17 +14,24 @@ const FunctionalZero = () => {
   useEffect(() => {
     let active = true
     getFunctionalZeroAchievements().then(result => { if (active) setData(result) })
-      .catch(() => { if (active) setError('Unable to load achievements. Please try again later.') })
-    getFunctionalZeroStatus().then(result => { if (active) setStatuses(result) }).catch(() => { if (active) setStatuses(false) })
+      .catch(() => { if (active) {
+        setError('Unable to load achievements. Please try again later.')
+        analytics.track('data_load_error', { data_section: 'achievements' })
+      } })
+    getFunctionalZeroStatus().then(result => { if (active) setStatuses(result) }).catch(() => { if (active) {
+      setStatuses(false)
+      analytics.track('data_load_error', { data_section: 'assessments' })
+    } })
     return () => { active = false }
   }, [])
 
-  if (error) return <div className="loading" role="alert">{error}</div>
-  if (!data) return <div className="loading">Loading Functional Zero achievements...</div>
-
-  const communities = data.communities.filter(community =>
+  const communities = (data?.communities || []).filter(community =>
     `${community.name} ${community.state}`.toLowerCase().includes(query.trim().toLowerCase()) &&
     (population === 'all' || community.populations.includes(population)))
+  const reportSearch = useSearchAnalytics('achievement_search', query, communities.length)
+
+  if (error) return <div className="loading" role="alert">{error}</div>
+  if (!data) return <div className="loading">Loading Functional Zero achievements...</div>
   const counts = [
     { label: 'Communities with achievements', value: data.communities.length },
     { label: 'Veteran homelessness milestones', value: data.communities.filter(c => c.populations.includes('veteran')).length },
@@ -49,10 +58,15 @@ const FunctionalZero = () => {
       <h2 id="achievement-list-title">Communities and populations</h2>
       <div className="achievement-filters">
         <label>Search community or state
-          <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Community name or state abbreviation" />
+          <input type="search" value={query} onChange={event => setQuery(event.target.value)}
+            onBlur={reportSearch} onKeyDown={event => { if (event.key === 'Enter') reportSearch() }}
+            placeholder="Community name or state abbreviation" />
         </label>
         <label>Population
-          <select value={population} onChange={event => setPopulation(event.target.value)}>
+          <select value={population} onChange={event => {
+            setPopulation(event.target.value)
+            analytics.track('achievement_population_filter', { population_filter: event.target.value })
+          }}>
             <option value="all">All populations</option>
             <option value="veteran">Veteran homelessness</option>
             <option value="chronic">Chronic homelessness</option>

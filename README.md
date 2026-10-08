@@ -7,6 +7,9 @@ A React dashboard and public read-only API for aggregate homelessness data.
 Cloudflare Workers serves the app and API; Cloudflare D1 stores verified imports.
 The production site is [debughomelessness.com](https://debughomelessness.com).
 
+Join the [community Discord](https://discord.gg/7TZ6teXQH) to discuss the data,
+share ideas, and work together toward functional zero.
+
 ## Data
 
 The initial import uses HUD's [2025 AHAR PIT release](https://www.huduser.gov/portal/datasets/ahar/2025-ahar-part-1-pit-estimates-of-homelessness-in-the-us.html),

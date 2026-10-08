@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANALYTICS_EXCLUSION_KEY, createAnalytics } from '../../frontend/src/services/analytics.js';
+import { ANALYTICS_EXCLUSION_KEY, analyticsLinkEvent, analyticsPageContext, createAnalytics } from '../../frontend/src/services/analytics.js';
 
 function setup({ url = 'https://debughomelessness.com/', production = true,
   measurementId = 'G-TEST12345', storage = new Map(), blockedStorage = false } = {}) {
   const scripts = [];
   const listeners = new Map();
+  const documentListeners = new Map();
   const browser = {
     location: { href: url },
     localStorage: {
@@ -23,12 +24,13 @@ function setup({ url = 'https://debughomelessness.com/', production = true,
     addEventListener(name, listener) { listeners.set(name, listener); },
   };
   const document = {
+    addEventListener(name, listener) { documentListeners.set(name, listener); },
     createElement: () => ({}),
     head: { appendChild: script => scripts.push(script) },
   };
   const analytics = createAnalytics({ browser, document, measurementId, production });
   analytics.initialize();
-  return { analytics, browser, scripts, storage, listeners };
+  return { analytics, browser, scripts, storage, listeners, documentListeners };
 }
 
 test('GA loads once for a production visitor and leaves page views to enhanced measurement', () => {
@@ -107,4 +109,90 @@ test('an exclusion is saved even before a measurement ID is configured', () => {
   const result = setup({ measurementId: '', url: 'https://debughomelessness.com/?analytics=off' });
   assert.equal(result.storage.get(ANALYTICS_EXCLUSION_KEY), 'true');
   assert.equal(setup({ storage: result.storage }).scripts.length, 0);
+});
+
+test('meaningful events include the current route and only allowlisted public parameters', () => {
+  const { analytics, browser } = setup();
+  browser.location.href = 'https://debughomelessness.com/coc/FL-601?email=private@example.com#history';
+  assert.equal(analytics.track('coc_select', { coc_id: 'NY-600', coc_state: 'NY', selection_method: 'list',
+    email: 'private@example.com', search_term: 'my address', link_url: 'https://example.org/private' }), true);
+  assert.deepEqual(Array.from(browser.dataLayer.at(-1)), ['event', 'coc_select', {
+    page_type: 'coc_detail', page_path: '/coc/FL-601', coc_id: 'NY-600', coc_state: 'NY',
+    selection_method: 'list', send_to: 'G-TEST12345', transport_type: 'beacon',
+  }]);
+  const before = browser.dataLayer.length;
+  assert.equal(analytics.track('unknown_event', { value: 'private' }), false);
+  assert.equal(analytics.track('__proto__'), false);
+  assert.equal(analytics.track('constructor'), false);
+  assert.equal(browser.dataLayer.length, before);
+  analytics.track('coc_search', { result_count: 0, state_filter: 'FL', search_term: 'my address' });
+  assert.equal(browser.dataLayer.at(-1)[2].result_count, 0);
+  assert.equal(browser.dataLayer.at(-1)[2].search_term, undefined);
+  analytics.track('shelter_toggle', { enabled: false });
+  assert.equal(browser.dataLayer.at(-1)[2].enabled, false);
+  analytics.track('coc_select', { coc_id: 'private@example.com', coc_state: 'New York', selection_method: 'private' });
+  assert.equal(browser.dataLayer.at(-1)[2].coc_id, 'FL-601');
+  assert.equal(browser.dataLayer.at(-1)[2].coc_state, undefined);
+  assert.equal(browser.dataLayer.at(-1)[2].selection_method, undefined);
+});
+
+test('custom events obey exclusion, environment gates, and provider failures', () => {
+  for (const options of [{ production: false }, { measurementId: '' }, { blockedStorage: true },
+    { url: 'https://debughomelessness.com/?analytics=off' }, { url: 'http://localhost:3000/' }]) {
+    const result = setup(options);
+    assert.equal(result.analytics.track('discord_click'), false);
+    assert.equal(result.browser.dataLayer, undefined);
+  }
+  const result = setup();
+  result.storage.set(ANALYTICS_EXCLUSION_KEY, 'true');
+  // Honor a saved exclusion even before its storage event is delivered.
+  assert.equal(result.analytics.track('discord_click'), false);
+  result.listeners.get('storage')({ key: ANALYTICS_EXCLUSION_KEY });
+  assert.equal(result.analytics.track('discord_click'), false);
+  const broken = setup();
+  broken.browser.gtag = () => { throw new Error('Blocked provider'); };
+  assert.equal(broken.analytics.track('discord_click'), false);
+});
+
+test('link classification separates intent, strips URL parameters, and ignores exclusion controls', () => {
+  const base = 'https://debughomelessness.com/';
+  for (const [href, name] of [
+    ['https://discord.gg/7TZ6teXQH', 'discord_click'],
+    ['https://github.com/sponsors/Nick-', 'donate_click'],
+    ['https://github.com/Nick-/debughomelessness.com', 'repository_click'],
+    ['https://www.hud.gov/FindShelter', 'shelter_resource_click'],
+    ['https://files.hudexchange.info/reports/published/public.pdf?private=value#page=2', 'source_click'],
+    ['https://bphi.org/contact-us/', 'source_click'],
+    ['https://huduser.gov/portal/datasets/ahar/', 'source_click'],
+    ['https://adrcbroward.org/sites/default/files/public.pdf', 'source_click'],
+    ['/coc/FL-601', 'navigation_click'],
+  ]) {
+    const action = analyticsLinkEvent(href, base, 'footer');
+    assert.equal(action.name, name);
+    assert.equal(action.parameters.link_placement, 'footer');
+    assert.equal(action.parameters.link_url, undefined);
+  }
+  assert.equal(analyticsLinkEvent('/#coc-map', base).parameters.destination, 'coc_map');
+  assert.equal(analyticsLinkEvent('/functional-zero', base).parameters.destination, 'functional_zero');
+  for (const href of ['?analytics=off', '?analytics=on', 'mailto:private@example.com',
+    'https://discord.gg.example.org/', '/private@example.com', 'https://unrecognized.example.org/']) {
+    assert.equal(analyticsLinkEvent(href, base), null);
+  }
+  assert.deepEqual(analyticsPageContext(`${base}private@example.com?secret=yes`), { page_type: 'other', page_path: '/other' });
+});
+
+test('delegated links work for late-mounted content and middle clicks without duplicate listeners', () => {
+  const { analytics, browser, documentListeners } = setup();
+  analytics.initialize();
+  assert.equal(documentListeners.size, 2);
+  const link = { href: 'https://discord.gg/7TZ6teXQH', closest: selector => selector === 'footer' };
+  const event = { target: { closest: () => link }, type: 'click', button: 0 };
+  documentListeners.get('click')(event);
+  assert.equal(browser.dataLayer.at(-1)[1], 'discord_click');
+  assert.equal(browser.dataLayer.at(-1)[2].link_placement, 'footer');
+  const before = browser.dataLayer.length;
+  documentListeners.get('auxclick')({ ...event, type: 'auxclick', button: 2 });
+  assert.equal(browser.dataLayer.length, before);
+  documentListeners.get('auxclick')({ ...event, type: 'auxclick', button: 1 });
+  assert.equal(browser.dataLayer.length, before + 1);
 });
